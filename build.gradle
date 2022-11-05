@@ -13,11 +13,10 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'groovy'
 apply plugin: 'idea'
-apply plugin: 'maven-publish'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'asset-pipeline'
 
-group = 'com.morpheusdata.backup'
+group = 'com.morpheusdata.rubrik'
 ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
 repositories {
@@ -32,7 +31,7 @@ configurations {
 
 dependencies {
 	provided "com.morpheusdata:morpheus-plugin-api:0.13.4-SNAPSHOT"
-	implementation "org.codehaus.groovy:groovy-all:$groovyVersion"
+	provided "org.codehaus.groovy:groovy-all:$groovyVersion"
 	implementation 'commons-beanutils:commons-beanutils:1.9.3'
 	implementation "org.slf4j:slf4j-api:$slf4jVersion"
 	implementation "org.slf4j:slf4j-parent:$slf4jVersion"
@@ -92,16 +91,12 @@ shadowJar {
 	// archiveFileName = "${baseName}-${version}.mpl"
 }
 
-tasks.withType(Sign) {
-	onlyIf { isReleaseVersion }
-}
-
 tasks.assemble.dependsOn tasks.shadowJar
 
 tasks.register('moveToPlugin') {
 	doLast {
 		ant.move file: "${buildDir}/libs/${project.name}-${version}-all.jar",
-			todir: "../../morpheus-plugins"
+			todir: "../morpheus-plugins"
 	}
 }
 

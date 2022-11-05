@@ -2,9 +2,10 @@ package com.morpheusdata.rubrik
 
 import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.Plugin
-import com.morpheusdata.core.backup.AbstractBackupPluginProvider
+import com.morpheusdata.core.backup.AbstractBackupProvider
 import com.morpheusdata.core.backup.BackupJobProvider
 import com.morpheusdata.core.backup.BackupProvider
+import com.morpheusdata.core.backup.BackupTypeProvider
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
 import com.morpheusdata.model.BackupProviderType
 import com.morpheusdata.model.Icon
@@ -21,7 +22,7 @@ import com.morpheusdata.core.util.ConnectionUtils
 //
 
 @Slf4j
-class RubrikBackupProvider extends AbstractBackupPluginProvider {
+class RubrikBackupProvider extends AbstractBackupProvider {
 
 	static String LOCK_NAME = 'backups.rubrik'
 
@@ -262,8 +263,8 @@ class RubrikBackupProvider extends AbstractBackupPluginProvider {
 					getSlaDomainService().executeSync(backupProviderModel, authConfig)
 					// Execute refresh on sub providers (vmware, aws, hyperv, etc)
 					// each provider has unique API endpoints for things like snapshots
-					List<BackupProvider> subProviders = getScopedProviders().collect { it.backupProvider }
-					for(BackupProvider subProvider in subProviders) {
+					List<BackupTypeProvider> subProviders = getScopedProviders().collect { it.backupTypeProvider }
+					for(BackupTypeProvider subProvider in subProviders) {
 						subProvider.refresh(authConfig, backupProviderModel)
 					}
 				} else {

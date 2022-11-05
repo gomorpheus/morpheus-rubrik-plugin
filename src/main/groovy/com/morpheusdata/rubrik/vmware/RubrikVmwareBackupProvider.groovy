@@ -2,7 +2,7 @@ package com.morpheusdata.rubrik.vmware
 
 import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.Plugin
-import com.morpheusdata.core.backup.AbstractBackupProvider
+import com.morpheusdata.core.backup.AbstractBackupTypeProvider
 import com.morpheusdata.core.backup.BackupExecutionProvider
 import com.morpheusdata.core.backup.BackupRestoreProvider
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
@@ -17,7 +17,7 @@ import groovy.util.logging.Slf4j
 // Equivalent to morpheus BackupType
 //
 @Slf4j
-class RubrikVmwareBackupProvider extends AbstractBackupProvider {
+class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
 	RubrikVmwareApiService apiService
 
@@ -115,7 +115,6 @@ class RubrikVmwareBackupProvider extends AbstractBackupProvider {
 		ServiceResponse rtn = ServiceResponse.prepare()
 		try {
 			getSlaSnapshotService().executeSync(backupProviderModel, authConfig)
-			// getVcenterServerService().executeRefresh(backupProviderModel, authConfig)
 		} catch(Exception e) {
 			log.error("error refreshing backup provider {}::{}: {}", plugin.name, this.name, e)
 		}
