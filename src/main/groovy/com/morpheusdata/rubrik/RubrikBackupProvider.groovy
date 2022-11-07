@@ -4,6 +4,7 @@ import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.Plugin
 import com.morpheusdata.core.backup.AbstractBackupProvider
 import com.morpheusdata.core.backup.BackupJobProvider
+import com.morpheusdata.core.backup.DefaultBackupJobProvider
 import com.morpheusdata.core.backup.BackupProvider
 import com.morpheusdata.core.backup.BackupTypeProvider
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
@@ -146,7 +147,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	@Override
 	BackupJobProvider getBackupJobProvider() {
 		if(!this.backupJobProvider) {
-			this.backupJobProvider = new RubrikBackupJobProvider();
+			this.backupJobProvider = new DefaultBackupJobProvider();
 		}
 		return this.backupJobProvider
 	}
