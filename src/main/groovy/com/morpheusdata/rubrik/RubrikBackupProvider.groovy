@@ -261,7 +261,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 				def testResults = verifyAuthentication(backupProviderModel, apiOpts)
 				if(testResults.success == true) {
 					morpheus.backupProvider.updateStatus(backupProviderModel, 'ok', null).subscribe().dispose()
-					getSlaDomainService().executeSync(backupProviderModel, authConfig)
+					getSlaDomainService().executeCache(backupProviderModel, authConfig)
 					// Execute refresh on sub providers (vmware, aws, hyperv, etc)
 					// each provider has unique API endpoints for things like snapshots
 					List<BackupTypeProvider> subProviders = getScopedProviders().collect { it.backupTypeProvider }

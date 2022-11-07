@@ -114,7 +114,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 		log.debug("Refreshing Rubrik Backup Provider \"{}\"", backupProviderModel.name)
 		ServiceResponse rtn = ServiceResponse.prepare()
 		try {
-			getSlaSnapshotService().executeSync(backupProviderModel, authConfig)
+			getSlaSnapshotService().executeCache(backupProviderModel, authConfig)
 		} catch(Exception e) {
 			log.error("error refreshing backup provider {}::{}: {}", plugin.name, this.name, e)
 		}

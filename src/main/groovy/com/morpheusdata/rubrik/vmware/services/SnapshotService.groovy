@@ -29,11 +29,11 @@ class SnapshotService {
 		this.apiService = new RubrikVmwareApiService()
 	}
 
-	def executeSync(BackupProviderModel backupProviderModel, Map authConfig) {
-		log.debug("executeSync: ${backupProviderModel.id}")
+	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
+		log.debug("executeCache: ${backupProviderModel.id}")
 		try {
 			plugin.morpheus.backup.listIdentityProjections(backupProviderModel)
-				.doOnError() { e -> log.error("executeSync, error loading backup identity projections: ${e.message}", e) }
+				.doOnError() { e -> log.error("executeCache, error loading backup identity projections: ${e.message}", e) }
 				.buffer(50)
 				.flatMap() {  providerBackupIdp ->
 					plugin.morpheus.backup.listById(providerBackupIdp.collect { it.id })
@@ -75,7 +75,7 @@ class SnapshotService {
 
 					return syncTask.observe()
 				}
-				.doOnError() { e -> log.error("executeSync, error loading backup details: ${e.message}", e) }
+				.doOnError() { e -> log.error("executeCache, error loading backup details: ${e.message}", e) }
 				.blockingSubscribe()
 
 		} catch(e) {

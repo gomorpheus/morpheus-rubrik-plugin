@@ -22,8 +22,8 @@ class SlaDomainService {
 		this.apiService = new ApiService()
 	}
 
-	def executeSync(BackupProviderModel backupProviderModel, Map authConfig) {
-		log.debug("executeSync: ${backupProviderModel.id}")
+	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
+		log.debug("executeCache: ${backupProviderModel.id}")
 		try {
 			def objectCategory = getObjectCategory(backupProviderModel)
 			def slaDomainResults = apiService.listSlaDomains(authConfig)
