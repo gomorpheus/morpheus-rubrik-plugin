@@ -35,7 +35,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
 	@Override
 	String getCode() {
-		return "rubrikVmware"
+		return "rubrikVMWareBackup"
 	}
 
 	@Override

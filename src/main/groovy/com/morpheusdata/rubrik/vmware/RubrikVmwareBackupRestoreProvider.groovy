@@ -43,7 +43,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 		def rtn = [success:false, data:[:]]
 		try {
 			def backup = backupResult.backup
-			log.info("getBackupRestoreInstanceConfig: {}", backupResult)
+			log.debug("getBackupRestoreInstanceConfig: {}", backupResult)
 			log.debug("restoreConfig: {}", restoreConfig)
 			log.debug("opts: {}", opts)
 			restoreConfig.config = backupResult.getConfigMap() ?: [:]

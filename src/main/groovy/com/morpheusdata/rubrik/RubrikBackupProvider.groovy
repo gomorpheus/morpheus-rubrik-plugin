@@ -40,12 +40,12 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	@Override
 	String getCode() {
-		return 'rubrikPlugin'
+		return 'rubrik'
 	}
 
 	@Override
 	String getName() {
-		return 'Rubrik (plugin)'
+		return 'Rubrik'
 	}
 
 	@Override
@@ -53,6 +53,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		return new Icon(path:"rubrik.svg", darkPath: "rubrik-dark.svg")
 	}
 
+	// TODO: remove this in favor of option types on the backup type?
 	@Override
 	public String getViewSet() {
 		'rubrik'
@@ -182,7 +183,6 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 			}
 
 			def localCredentials = (backupProviderModel.credentialData?.type ?: 'local') == 'local'
-			log.info("Credential data; ${backupProviderModel.credentialData.password}")
 			if((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password)) {
 				rtn.msg = rtn.msg ?: 'Enter an api token'
 				rtn.errors.serviceToken = 'Enter an api token'
@@ -226,8 +226,8 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		}
 
 		if(keepGoing) {
-			List<BackupProvider> subProviders = getScopedProviders().collect { it.backupProvider }
-			for(BackupProvider subProvider in subProviders) {
+			List<BackupTypeProvider> subProviders = getScopedProviders().collect { it.backupTypeProvider }
+			for(BackupTypeProvider subProvider in subProviders) {
 				if(keepGoing) {
 					ServiceResponse subProviderResults = subProvider.clean(backupProviderModel, opts)
 					if(subProviderResults.success == false) {
