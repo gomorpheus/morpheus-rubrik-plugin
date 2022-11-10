@@ -33,8 +33,9 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 	@Override
 	ServiceResponse configureBackup(Backup backup, Map config, Map opts) {
 		log.debug("configuring backup")
-		if(config.rubrikSlaDomain) {
-			backup.setConfigProperty("rubrikSlaDomain", config.rubrikSlaDomain)
+		def slaDomain = config.rubrikSlaDomain ?: opts.config?.rubrikSlaDomain
+		if(slaDomain) {
+			backup.setConfigProperty("rubrikSlaDomain", slaDomain)
 		}
 
 		return ServiceResponse.success(backup)

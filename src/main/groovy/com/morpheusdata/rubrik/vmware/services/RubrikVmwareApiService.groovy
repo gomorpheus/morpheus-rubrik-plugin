@@ -27,8 +27,9 @@ class RubrikVmwareApiService extends ApiService {
 		try {
 			def vmIdResults = getVirtualMachineId(authConfig, vmExternalId)
 			log.debug("vmIdResults: ${vmIdResults}")
-			if(vmIdResults.success && vmIdResults.data.virtualMachine?.id) {
-				String vmId = (vmIdResults.data.virtualMachine instanceof List ?  vmIdResults.data.virtualMachine.getAt(0) : vmIdResults.data.virtualMachine).id
+			def vmData = vmIdResults.data.virtualMachine instanceof List ?  vmIdResults.data.virtualMachine.getAt(0) : vmIdResults.data.virtualMachine
+			if(vmIdResults.success && vmData?.id) {
+				String vmId = vmData.id
 				log.debug("vmId: ${vmId}")
 				log.debug("vmOpts: ${vmOpts}")
 				rtn = internalPatchApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine', vmOpts)
@@ -122,8 +123,11 @@ class RubrikVmwareApiService extends ApiService {
 		def rtn = ServiceResponse.prepare()
 		try {
 			ServiceResponse vmIdResults = getVirtualMachineId(authConfig, vmExternalId)
-			if(vmIdResults.success && vmIdResults?.data?.virualMachine?.id) {
-				Long vmId = vmIdResults?.data?.virualMachine.id
+			log.debug("vmIdResults: ${vmIdResults}")
+			def vmData = vmIdResults.data.virtualMachine instanceof List ?  vmIdResults.data.virtualMachine.getAt(0) : vmIdResults.data.virtualMachine
+
+			if(vmIdResults.success && vmData?.id) {
+				String vmId = vmData.id
 				rtn = internalGetApiRequest(authConfig, '/vmware/vm/' + vmId + '/snapshot', 'snapshots')
 			} else {
 				rtn.msg = "VM not found in Rubrik."

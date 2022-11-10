@@ -87,6 +87,9 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	public Boolean getHasSchedule() { return true; }
 
 	@Override
+	public String getDefaultJobType() { return "none"; }
+
+	@Override
 	public Boolean getHasRetentionCount() { return true; }
 
 	@Override
@@ -135,6 +138,14 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	@Override
 	Collection<OptionType> getBackupOptionTypes() {
 		Collection<OptionType> optionTypes = new ArrayList()
+
+		optionTypes << new OptionType(
+			code:'backup.rubrik.slaDomain', inputType:OptionType.InputType.SELECT, name:'rubrikSlaDomain', optionSource:'rubrikSlaDomains',
+			category:'backup.rubrik', fieldName:'rubrikSlaDomain', fieldCode: 'gomorpheus.label.slaDomain', fieldLabel:'SLA Domain', fieldContext:'config',
+			required:false, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			displayOrder:0, fieldClass:null
+		)
+
 		return optionTypes;
 	}
 

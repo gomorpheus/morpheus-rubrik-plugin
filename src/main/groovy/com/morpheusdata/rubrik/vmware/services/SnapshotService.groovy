@@ -58,7 +58,7 @@ class SnapshotService {
 						log.error(errorMsg)
 					}
 
-					Observable<BackupResultIdentityProjection> backupResultIdentityProjections = plugin.morpheus.backup.backupResult.listIdentityProjections(backupProviderModel.account.id, backupServerDto.backup)
+					Observable<BackupResultIdentityProjection> backupResultIdentityProjections = plugin.morpheus.backup.backupResult.listIdentityProjectionsByAccount(backupProviderModel.account.id, backupServerDto.backup)
 
 					SyncTask<BackupResultIdentityProjection, Map, BackupResultModel> syncTask = new SyncTask(backupResultIdentityProjections, snapshotList)
 					syncTask.addMatchFunction { BackupResultIdentityProjection localItem, Map remoteItem ->
@@ -116,7 +116,6 @@ class SnapshotService {
 				containerId    : backupModel.containerId,
 				instanceId     : backupModel.instanceId,
 				containerTypeId: backupModel.containerTypeId,
-				restoreType    : backupModel.backupType.restoreType, // ???
 				startDay       : createdDay,
 				startDate      : createdDate,
 				endDay         : createdDay,
