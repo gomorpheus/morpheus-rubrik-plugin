@@ -22,15 +22,6 @@ class RubrikPlugin extends Plugin {
 		def optionSourceProvider = new RubrikOptionSourceProvider(this, morpheus)
 		this.pluginProviders.put(optionSourceProvider.code, optionSourceProvider)
 
-		// vmware
-		RubrikVmwareBackupProvider vmwareBackupProvider = new RubrikVmwareBackupProvider(this, morpheus)
-		this.pluginProviders.put(vmwareBackupProvider.code, vmwareBackupProvider)
-		backupProvider.addScopedProvider(vmwareBackupProvider, "vmware", null)
-
-		// hyperv
-		// aws
-		// nutanix
-
 	}
 
 	@Override

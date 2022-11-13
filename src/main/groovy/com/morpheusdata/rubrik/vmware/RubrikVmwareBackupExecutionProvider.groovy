@@ -32,8 +32,9 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 	@Override
 	ServiceResponse configureBackup(Backup backup, Map config, Map opts) {
-		log.debug("configuring backup")
+		log.debug("configuring backup with properties {} and opts {}", config, opts)
 		def slaDomain = config.rubrikSlaDomain ?: opts.config?.rubrikSlaDomain
+		log.debug("slaDomain: {}", slaDomain)
 		if(slaDomain) {
 			backup.setConfigProperty("rubrikSlaDomain", slaDomain)
 		}
@@ -48,18 +49,18 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 	@Override
 	ServiceResponse createBackup(Backup backup, Map opts) {
-		log.debug("creating backup for backup {}", backup.id)
+		log.debug("creating backup for backup {}:{} with opts: {}", backup.id, backup.name, opts)
 		ServiceResponse rtn = ServiceResponse.prepare()
 		try {
 			// Only need to update the VM with an SLA Domain if necessary
 			BackupProvider backupProvider = backup.backupProvider
 			def slaDomainId = opts.rubrikSlaDomain ?: backup.getConfigProperty('rubrikSlaDomain')
+			log.debug("slaDomainId: {}", slaDomainId)
 			if(slaDomainId) {
 				def authConfig = apiService.getAuthConfig(backupProvider)
 				def morphServer = null
-				def morphServerId = opts.server?.id ?: backup.computeServerId
-				if(morphServerId) {
-					morphServer = plugin.morpheus.computeServer.get(morphServerId).blockingGet()
+				if(backup.computeServerId) {
+					morphServer = plugin.morpheus.computeServer.get(backup.computeServerId).blockingGet()
 				}
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.

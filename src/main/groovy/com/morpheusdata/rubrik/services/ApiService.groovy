@@ -127,7 +127,7 @@ class ApiService {
 					results = RestApiUtil.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
 					log.debug("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false) {
-						if(results.data.data) {
+						if(results.data.data != null) {
 							results.data.data?.each { row ->
 								def obj = row
 								rtn.data[dataKey] << obj

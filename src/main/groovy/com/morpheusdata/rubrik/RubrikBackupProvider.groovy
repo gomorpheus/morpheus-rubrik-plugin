@@ -14,6 +14,7 @@ import com.morpheusdata.model.OptionType
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.services.ApiService
 import com.morpheusdata.rubrik.services.SlaDomainService
+import com.morpheusdata.rubrik.vmware.RubrikVmwareBackupProvider
 import groovy.util.logging.Slf4j
 import groovy.json.JsonOutput
 import com.morpheusdata.core.util.ConnectionUtils
@@ -36,6 +37,14 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	RubrikBackupProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		super(plugin, morpheusContext)
 		apiService = new ApiService()
+
+		// vmware
+		RubrikVmwareBackupProvider vmwareBackupProvider = new RubrikVmwareBackupProvider(plugin, morpheus)
+		plugin.pluginProviders.put(vmwareBackupProvider.code, vmwareBackupProvider)
+		addScopedProvider(vmwareBackupProvider, "vmware", null)
+		// hyperv
+		// aws
+		// nutanix
 	}
 
 	@Override
