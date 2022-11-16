@@ -47,6 +47,12 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			log.debug("restoreConfig: {}", restoreConfig)
 			log.debug("opts: {}", opts)
 			restoreConfig.config = backupResult.getConfigMap() ?: [:]
+
+			// remove backupSetId from here so morpheus doesn't try to do a restore to existing from backup
+			// during our temp vm extract restore process.
+			if(restoreConfig?.instanceOpts?.provisionOpts?.backupSetId){
+				restoreConfig?.instanceOpts?.provisionOpts?.remove('backupSetId')
+			}
 			if(opts.extractResults) {
 				restoreConfig.instanceOpts = restoreConfig.instanceOpts ?: [:]
 				restoreConfig.instanceOpts.provisionOpts = [

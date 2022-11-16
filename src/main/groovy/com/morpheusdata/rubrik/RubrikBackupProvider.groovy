@@ -168,7 +168,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	@Override
 	BackupJobProvider getBackupJobProvider() {
 		if(!this.backupJobProvider) {
-			this.backupJobProvider = new DefaultBackupJobProvider();
+			this.backupJobProvider = new DefaultBackupJobProvider(getPlugin(), morpheus);
 		}
 		return this.backupJobProvider
 	}
