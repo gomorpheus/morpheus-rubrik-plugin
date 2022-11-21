@@ -281,8 +281,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 				}
 			} else {
-				rtn.success = false
-				rtn.msg = "No snapshot task request ID found for BackupResult ${backupResult.id}."
+				// backup isn't ready yet, wait for next refresh.
+				rtn.success = true
 			}
 		} catch(Exception e) {
 			rtn.success = false
