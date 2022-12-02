@@ -48,11 +48,11 @@ class RubrikVmwareApiService extends ApiService {
 
 	ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, Map opts=[:]) {
 		Map body = [
-			config: [
-				powerOn: true,
-				disableNetwork: false,
-				preserveMoid: true
-			]
+			powerOn: true,
+			disableNetwork: false,
+			preserveMoid: true,
+			keepMacAddresses: true,
+			removeNetworkDevices: false,
 		]
 		return internalPostApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId + '/instant_recover', 'restoreRequest', body)
 	}
