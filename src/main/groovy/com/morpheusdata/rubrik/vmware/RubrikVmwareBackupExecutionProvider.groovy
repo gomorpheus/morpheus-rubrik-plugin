@@ -97,16 +97,23 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				def morphServer = null
 				def morphServerId = opts.server?.id ?: backup.computeServerId
 				if(morphServerId) {
-					morphServer = plugin.morpheus.computeServer.get(morphServerId).blockingGet()
+					try {
+						morphServer = plugin.morpheus.computeServer.get(morphServerId).blockingGet()
+					} catch (Throwable t2) {
+						// this is expected, the Single returned doesn't handle optional so we have
+						// to catch the exception here if the backup had been retained from the
+						// resources deleted.
+					}
 				}
 				if(morphServer) {
 					rtn = apiService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
+					log.debug("deleteBackup API results: {}", rtn)
 					if(!rtn.success && rtn.msg.contains("not found")) {
 						rtn.success = true
 					}
 				} else {
-					rtn.success = false
-					rtn.msg = "Could not find source resource"
+					// this is a retained backup, allow delete to proceed
+					rtn.success = true
 				}
 			} else {
 				rtn.success = true
