@@ -54,6 +54,7 @@ class RubrikVmwareApiService extends ApiService {
 			keepMacAddresses: true,
 			removeNetworkDevices: false,
 		]
+		log.debug("restoreSnapshotToVirtualMachine, snapshotId: {}, body: {}", snapshotId, body)
 		return internalPostApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId + '/instant_recover', 'restoreRequest', body)
 	}
 
@@ -65,6 +66,7 @@ class RubrikVmwareApiService extends ApiService {
 			hostId: opts.hostId,
 			vmName: opts.vmName
 		]
+		log.debug("restoreSnapshotToNewVirtualMachine, snapshotId: {}, body: {}", snapshotId, body)
 		return internalPostApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId + '/export', 'restoreRequest', body)
 	}
 
@@ -90,6 +92,7 @@ class RubrikVmwareApiService extends ApiService {
 					rtn.success = true
 				} else {
 					rtn.success = false
+					rtn.data = rtn.data ?: [:]
 					rtn.data.retry = true
 					rtn.msg = "Could not find restored vm reference"
 					log.error("Could not find restored vm reference")

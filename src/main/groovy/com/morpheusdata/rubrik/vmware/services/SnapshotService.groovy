@@ -106,7 +106,7 @@ class SnapshotService {
 			Date createdDay = createdDate ? Date.from(createdDate.toInstant().truncatedTo(ChronoUnit.DAYS)) : null
 			def add = new BackupResultModel(
 				status         : BackupStatusUtility.SUCCEEDED,
-				externalId     : remoteItem.externalId,
+				externalId     : remoteItem.id,
 				account        : backupProviderModel.account,
 				backup         : backupModel,
 				backupName     : backupModel.name,

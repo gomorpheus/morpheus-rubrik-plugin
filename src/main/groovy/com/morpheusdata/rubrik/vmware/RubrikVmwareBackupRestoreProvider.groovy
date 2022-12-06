@@ -34,12 +34,12 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 	}
 
 	@Override
-	 ServiceResponse configureRestoreBackup(BackupResult backupResult, Map config, Map opts) {
+	ServiceResponse configureRestoreBackup(BackupResult backupResult, Map config, Map opts) {
 		return ServiceResponse.success()
 	}
 
 	@Override
-	 ServiceResponse getBackupRestoreInstanceConfig(BackupResult backupResult, Instance instanceModel, Map restoreConfig, Map opts) {
+	ServiceResponse getBackupRestoreInstanceConfig(BackupResult backupResult, Instance instanceModel, Map restoreConfig, Map opts) {
 		def rtn = [success:false, data:[:]]
 		try {
 			def backup = backupResult.backup
@@ -75,17 +75,17 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 	}
 
 	@Override
-	 ServiceResponse validateRestoreBackup(BackupResult backupResult, Map opts) {
+	ServiceResponse validateRestoreBackup(BackupResult backupResult, Map opts) {
 		return ServiceResponse.success()
 	}
 
 	@Override
-	 ServiceResponse getRestoreOptions(Backup backup, Map opts) {
+	ServiceResponse getRestoreOptions(Backup backup, Map opts) {
 		return ServiceResponse.success()
 	}
 
 	@Override
-	 ServiceResponse restoreBackup(BackupRestore backupRestore, BackupResult backupResult, Backup backup, Map opts) {
+	ServiceResponse restoreBackup(BackupRestore backupRestore, BackupResult backupResult, Backup backup, Map opts) {
 		ServiceResponse rtn = ServiceResponse.prepare(new BackupRestoreResponse(backupRestore))
 		log.info("Restoring backupResult {} - opts: {}", backupResult, opts)
 		try {
@@ -113,7 +113,11 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 							def hostId = vmDetailResult.data.virtualMachine.hostId
 							def vmHost = apiService.getHost(authConfig, hostId)
 							if(vmHost.success) {
-								def datastore = vmHost.data.host.datastores.find { it.name == sourceDatastore?.name }
+								log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId}")
+								def datastore = vmHost.data.host.datastores.find {
+									log.debug("host datastore: ${it}")
+									return it.id.endsWith(sourceDatastore.externalId)
+								}
 								if(datastore) {
 									def restoreOpts = [
 										datastoreId: datastore.id,
@@ -190,17 +194,17 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 		log.debug("refreshBackupRestoreResult: backupResult:${backupResult.id}, restore:${backupRestore.id}")
 		ServiceResponse<BackupRestoreResponse> rtn = ServiceResponse.prepare(new BackupRestoreResponse(backupRestore))
 		try{
+			Backup backup = backupResult.backup
 			BackupProvider backupProvider = backup.backupProvider
 			def authConfig = apiService.getAuthConfig(backupProvider)
-
 			String restoreRequestId = backupRestore.externalStatusRef
+			log.debug("restore request id: {}", restoreRequestId)
 			ServiceResponse restoreRequestResult = apiService.getVmTaskRequest(authConfig, restoreRequestId)
+			log.debug("restoreRequestResult: {}", restoreRequestResult)
 			Map restoreRequest = restoreRequestResult.data.request
 
 			Long targetWorkloadId = backupRestore?.containerId
-			Workload targetWorkload = plugin.morpheus.workload.get(targetWorkloadId)
-
-			plugin.morpheus.instance.
+			Workload targetWorkload = plugin.morpheus.workload.get(targetWorkloadId).blockingGet()
 
 			log.debug("restoreSession: ${restoreRequest}")
 			if(restoreRequest) {
@@ -210,7 +214,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 						def restoreResultId = apiService.extractUuid(resultLink.href)
 
 						def vmDetailResults = apiService.getRestoredVirtualMachine(authConfig, restoreResultId)
-						if(vmDetailResults.success && !vmDetailResults.retry) {
+						if(vmDetailResults.success && !vmDetailResults.data.retry) {
 							rtn.data.backupRestore.externalId = vmDetailResults.data.moid // might need to get the VM info from the restore result links
 						} else if(vmDetailResults.success && vmDetailResults.retry) {
 							restoreRequest.status = MorpheusBackupStatusUtility.IN_PROGRESS
@@ -220,6 +224,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					}
 				}
 				rtn.data.backupRestore.status = RubrikBackupStatusUtility.getBackupStatus(restoreRequest.status) ?: backupRestore.status
+				log.debug("Backup restore status: ${rtn.data.backupRestore.status}")
 				Date startDate = DateUtility.parseDate(restoreRequest.startTime)
 				Date endDate = DateUtility.parseDate(restoreRequest.endTime)
 				rtn.data.backupRestore.startDate = startDate
@@ -230,94 +235,18 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					rtn.data.backupRestore.endDate = end ? new Date(end) : null
 					rtn.data.backupRestore.duration = (start && end) ? (end - start) : 0
 				}
-				if(rtn.data.backupRestore.status == MorpheusBackupStatusUtility.FAILED) {
+				if(rtn.data.backupRestore.status == MorpheusBackupStatusUtility.FAILED && restoreRequest.error?.message) {
 					rtn.data.backupRestore.errorMessage = restoreRequest.error.message
 				}
 
 				updateRestoredInstanceStatusFromRestoreStatus(rtn.data.backupRestore, targetWorkload.instance, targetWorkload)
-				if(rtn.data.backupRestore.externalId && rtn.data.backupRestore.status == MorpheusBackupStatusUtility.SUCCEEDED) {
-					finalizeRestore(backupRestore, targetWorkload.instance, targetWorkload)
-				}
+				plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
 			}
 		} catch(Exception ex) {
 			log.error("refreshBackupRestoreResult error", ex)
 		}
 
 		return rtn
-	}
-
-	private finalizeRestore(BackupRestore backupRestore, Instance instance, Workload workload) {
-		log.info("finalizeRestore: {}", backupRestore)
-		 try {
-			 // Need to update the externalId as it has changed
-			 instance = workload?.instance
-			 ComputeServer server = workload.server
-			 ComputeServer existingServer = ComputeServer.where { account == server.account && zone == server.zone && externalId == backupRestore.externalId }.find()
-			 def restoreToNew = backupRestore.getConfigProperty("restoreType") == "new"
-			 if(existingServer && !restoreToNew) {
-				 // the new server has already synced in, replace the server
-				 workload.server = existingServer
-				 plugin.morpheus.workload.save(workload)
-			 } else {
-				 // update the existing server with the new info
-				 def vmwareInfo = vmwareComputeService.getServerDetail([zone: server.zone, externalId: backupRestore.externalId])
-				 if(vmwareInfo.success) {
-					 server.uniqueId = vmwareInfo.results.server.uuid
-					 server.internalId = vmwareInfo.results.server.instanceUuid
-					 server.externalId = vmwareInfo.results.server.mor
-					 server.status = 'running'
-					 def serverIp = vmwareInfo.results.server.ipAddress
-					 if(serverIp != server.externalIp) {
-						 if(server.externalIp == server.sshHost) {
-							 server.sshHost = serverIp
-						 }
-						 server.externalIp = serverIp
-					 }
-					 if(serverIp != server.internalIp) {
-						 if(server.internalIp == server.sshHost) {
-							 server.sshHost = serverIp
-						 }
-						 server.internalIp = serverIp
-					 }
-				 }
-				 server.save(flush:true)
-				 workload.status = Container.Status.running
-				 workload.save(flush:true)
-			 }
-
-			 // move vm
-			 if(!restoreToNew) {
-				 def rootVolume = server.volumes.find { it.rootVolume }
-				 def datastore = rootVolume?.datastore
-				 vmwareComputeService.relocateStorage(workload.server.zone, workload.server.externalId, datastore.externalId)
-			 }
-
-			 if(instance.layout.postProvisionService) {
-				 // make sure to fail if post provision fails
-				 try {
-					 def postProvisionService = grailsApplication.mainContext[instance.layout.postProvisionService]
-					 postProvisionService."${instance.layout.postProvisionOperation}"(instance)
-				 } catch(Throwable t) {
-					 log.error(t.message, t)
-					 instance.refresh()
-					 instance.status = Instance.Status.failed
-					 instance.statusDate = new Date()
-					 instance.save(flush: true)
-					 throw t
-				 }
-			 }
-			 // setup checks
-			 monitorCheckManagementService.updateChecksFromInstance(instance)
-			 // notify completion of this instance provisioning
-			 sendRabbitMessage('main', 'instance.event', 'event.instance.provisioned', [instanceId:instance.id])
-			 //restore an online backup
-		 } catch(e) {
-			 log.error("Error in finalizeRestore: ${e}", e)
-			 instance?.status = Instance.Status.failed
-			 instance?.save(flush:true)
-		 }
-
-		 return ServiceResponse.success()
 	}
 
 	private updateRestoredInstanceStatusFromRestoreStatus(BackupRestore backupRestore, Instance instance, Workload workload) {
@@ -339,7 +268,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			}
 
 			if(doSave) {
-				plugin.morpheus.instance.save(instance)
+				plugin.morpheus.instance.save([instance])
 			}
 		} catch (e) {
 			log.error("Error updating instance status: ${e}", e)
