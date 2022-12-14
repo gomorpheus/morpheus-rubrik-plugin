@@ -74,7 +74,7 @@ jar {
 			'Morpheus-Logo': 'assets/rubrik.svg',
 			'Morpheus-Logo-Dark': 'assets/rubrik-dark.svg',
 			'Morpheus-Color': '#ffffff',
-			'Morpheus-Labels': 'Plugin, Backup, Backups',
+			'Morpheus-Labels': 'Plugin, Backup',
 			'Morpheus-Repo': 'https://github.com/gomorpheus/morpheus-rubrik-plugin',
 			'Morpheus-Min-Appliance-Version': "5.5.2"
 		)
