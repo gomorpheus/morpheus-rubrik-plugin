@@ -131,25 +131,31 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 		ServiceResponse rtn = ServiceResponse.prepare()
 
 		def backupProvider = backupResult.backup?.backupProvider
-		def authConfig = apiService.getAuthConfig(backupProvider)
+		if(backupProvider) {
+			def authConfig = apiService.getAuthConfig(backupProvider)
 
-		def resultConfig = backupResult.getConfigMap()
-		def isOnDemandSnapshot = resultConfig.containsKey("isOnDemandSnapshot") ? resultConfig.isOnDemandSnapshot : true
-		if(isOnDemandSnapshot) {
-			if(backupResult.externalId) {
-				ServiceResponse deleteResult = apiService.deleteSnapshot(authConfig, backupResult.externalId)
-				log.debug("deleteResult erroCode: ${deleteResult.errorCode}")
-				if(deleteResult.success || deleteResult.errorCode == "404") {
+			def resultConfig = backupResult.getConfigMap()
+			def isOnDemandSnapshot = resultConfig.containsKey("isOnDemandSnapshot") ? resultConfig.isOnDemandSnapshot : true
+			if(isOnDemandSnapshot) {
+				if(backupResult.externalId) {
+					ServiceResponse deleteResult = apiService.deleteSnapshot(authConfig, backupResult.externalId)
+					log.debug("deleteResult erroCode: ${deleteResult.errorCode}")
+					if(deleteResult.success || deleteResult.errorCode == "404") {
+						rtn.success = true
+					}
+				} else {
 					rtn.success = true
 				}
 			} else {
+				log.debug("not on demand snapshot")
+				// we can't delete SLA snapshots
 				rtn.success = true
 			}
 		} else {
-			log.debug("not on demand snapshot")
-			// we can't delete SLA snapshots
+			//backup provider no longer exists on the entry, just clean up the record.
 			rtn.success = true
 		}
+		
 
 		log.debug("deleteBackupResult result: ${rtn}")
 		return rtn
