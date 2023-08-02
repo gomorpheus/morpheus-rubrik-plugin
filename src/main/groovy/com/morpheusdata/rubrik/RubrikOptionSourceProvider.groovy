@@ -4,6 +4,8 @@ import com.morpheusdata.core.AbstractOptionSourceProvider
 import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.Plugin
 import com.morpheusdata.core.util.MorpheusUtils
+import com.morpheusdata.model.BackupProvider
+import com.morpheusdata.model.Cloud
 import com.morpheusdata.rubrik.RubrikPlugin
 import groovy.util.logging.Slf4j
 
@@ -40,30 +42,29 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 
 	@Override
 	List<String> getMethodNames() {
-		return new ArrayList<String>(['rubrikSlaDomains'])
+		return new ArrayList<String>(['rubrikPluginSlaDomains'])
 	}
 
-	def rubrikSlaDomains(args) {
+	def rubrikPluginSlaDomains(args) {
+		args = args instanceof Object[] ? args.getAt(0) : args
+		log.debug("plugin rubrikSlaDomains args: ${args}")
 		def rtn = []
-		def tmpAccount = args.currentUser.account
-		def zone
-		def backupProvider
-		if(args.containerId && !args.zoneId) {
-			zone = morpheus.contain
-				Container.where{ account == tmpAccount && id == params.containerId.toLong() }.get()?.server?.zone
+		Cloud cloud
+		BackupProvider backupProvider
+		// if(args.containerId && !args.zoneId) {
+		// 		zone = Container.where{ account == tmpAccount && id == args.containerId.toLong() }.get()?.server?.zone
+		// }
+		if(!cloud && args.zoneId) {
+
+			cloud = morpheus.cloud.getCloudById(Long.parseLong(args.zoneId)).blockingGet()
+			log.debug("cloud: $cloud")
 		}
-		if(!zone && params.zoneId) {
-			zone = morpheus.cloud.getCloudById(MorpheusUtils.parse )
-				ComputeZone.read(params.zoneId)
+		if(cloud && cloud.backupProvider) {
+			backupProvider = morpheusContext.backupProvider.listById([cloud.backupProvider.id]).toList().blockingGet().getAt(0)
 		}
-		if(zone && zone.backupProvider) {
-			backupProvider = backupProviderService.loadBackupProvider(tmpAccount, zone.backupProvider.id)
-		}
-		if(!backupProvider) {
-			backupProviderService.getBackupProvider(tmpAccount, 'rubrik')
-		}
+		log.debug("Plugin Backup provider: ${backupProvider}")
 		if(backupProvider) {
-			def results = ReferenceData.where { category == "${backupProvider?.type?.code}.backup.slaDomain.${backupProvider?.id}"}.list()
+			List<com.morpheusdata.model.ReferenceData> results = morpheusContext.referenceData.listByCategory("${backupProvider?.type?.code}.backup.slaDomain.${backupProvider?.id}").toList().blockingGet()
 			if(results.size() > 0) {
 				results.each { policy ->
 					rtn << [name: policy.name, id: policy.id, value: policy.id]
