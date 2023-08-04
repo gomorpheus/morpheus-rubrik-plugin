@@ -81,25 +81,28 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	public Boolean getHasBackups() { return true; }
 
 	@Override
-	public Boolean getHasCreateJob() { return true; }
+	public Boolean getHasJobs() { return false; }
 
 	@Override
-	public Boolean getHasCloneJob() { return true; }
+	public Boolean getHasCreateJob() { return false; }
 
 	@Override
-	public Boolean getHasAddToJob() { return true; }
+	public Boolean getHasCloneJob() { return false; }
 
 	@Override
-	public Boolean getHasOptionalJob() { return true; }
+	public Boolean getHasAddToJob() { return false; }
 
 	@Override
-	public Boolean getHasSchedule() { return true; }
+	public Boolean getHasOptionalJob() { return false; }
+
+	@Override
+	public Boolean getHasSchedule() { return false; }
 
 	@Override
 	public String getDefaultJobType() { return "none"; }
 
 	@Override
-	public Boolean getHasRetentionCount() { return true; }
+	public Boolean getHasRetentionCount() { return false; }
 
 	@Override
 	Collection<OptionType> getOptionTypes() {
