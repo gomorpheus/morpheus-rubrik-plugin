@@ -42,10 +42,10 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 
 	@Override
 	List<String> getMethodNames() {
-		return new ArrayList<String>(['rubrikPluginSlaDomains'])
+		return new ArrayList<String>(['rubrikSlaDomains'])
 	}
 
-	def rubrikPluginSlaDomains(args) {
+	def rubrikSlaDomains(args) {
 		args = args instanceof Object[] ? args.getAt(0) : args
 		log.debug("plugin rubrikSlaDomains args: ${args}")
 		def rtn = []
