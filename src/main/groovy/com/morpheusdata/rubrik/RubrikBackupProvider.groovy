@@ -62,12 +62,6 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		return new Icon(path:"rubrik.svg", darkPath: "rubrik-dark.svg")
 	}
 
-	// TODO: remove this in favor of option types on the backup type?
-	@Override
-	public String getViewSet() {
-		'rubrik'
-	}
-
 	@Override
 	public Boolean getEnabled() { return true; }
 
