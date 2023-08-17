@@ -145,11 +145,20 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	Collection<OptionType> getBackupOptionTypes() {
 		Collection<OptionType> optionTypes = new ArrayList()
 
-		optionTypes << new OptionType(
-			code:'backup.rubrik.slaDomain', inputType:OptionType.InputType.SELECT, name:'rubrikSlaDomain', optionSource:'rubrikSlaDomains',
-			category:'backup.rubrik', fieldName:'rubrikSlaDomain', fieldCode: 'gomorpheus.label.slaDomain', fieldLabel:'SLA Domain', fieldContext:'backup.config',
-			required:false, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
-			displayOrder:0, fieldClass:null
+		optionTypes << new OptionType (
+			code: 'backup.rubrik.consistency', inputType: OptionType. InputType. SELECT, name: 'backupConsistency',
+			optionSource: 'getBackupConsistencyOptions', category: 'backup.rubrik', fieldName: 'backupConsistency',
+			fieldCode: 'backupConsistency', fieldLabel: 'Backup Consistency', fieldContext: 'config',
+			required:true, enabled:true, editable:true, global:false, placeHolder :null, helpBlock:'', defaultValue:null,
+			custom: false, displayOrder:1, fieldClass:null
+		)
+
+		optionTypes << new OptionType (
+			code: 'backup.rubrik.policy.name', inputType: OptionType. InputType. SELECT, name: 'backupPolicy',
+			optionSource: 'getVmWareProtectionPolicyNameOptions', category: 'backup.rubrik', fieldName: 'backupPolicy',
+			fieldCode: 'backupPolicy', fieldLabel: 'Backup Policy', fieldContext: 'config',
+			required: true, enabled:true, editable:true, global: false, placeHolder :null, helpBlock:'',
+			defaultValue:null, custom: false, displayOrder:2, fieldClass:null
 		)
 
 		return optionTypes;

@@ -42,7 +42,23 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 
 	@Override
 	List<String> getMethodNames() {
-		return new ArrayList<String>(['rubrikSlaDomains'])
+		return new ArrayList<String>(['rubrikSlaDomains', 'getBackupConsistencyOptions', 'getVmWareProtectionPolicyNameOptions'])
+	}
+
+	def getBackupConsistencyOptions(args) {
+		return [
+			[name: 'hourly', value: 'hourly'],
+			[name: 'daily', value: 'daily'],
+			[name: 'weekly', value: 'weekly']
+		]
+	}
+
+	def getVmWareProtectionPolicyNameOptions(args) {
+		return [
+		    [name: 'policy1', value: 'policy1'],
+			[name: 'policy2', value: 'policy2'],
+			[name: 'policy3', value: 'policy3']
+		]
 	}
 
 	def rubrikSlaDomains(args) {
