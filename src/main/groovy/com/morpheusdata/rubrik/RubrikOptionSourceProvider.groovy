@@ -54,11 +54,18 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 	}
 
 	def getVmWareProtectionPolicyNameOptions(args) {
-		return [
-		    [name: 'policy1', value: 'policy1'],
-			[name: 'policy2', value: 'policy2'],
-			[name: 'policy3', value: 'policy3']
-		]
+		args = args instanceof Object[] ? args.getAt(0) : args
+		if(args.config.backupConsistency == "daily") {
+			return [
+				[name: 'policy1', value: 'policy1'],
+			]
+		} else {
+			return [
+				[name: 'policy2', value: 'policy2'],
+				[name: 'policy3', value: 'policy3']
+			]
+		}
+
 	}
 
 	def rubrikSlaDomains(args) {

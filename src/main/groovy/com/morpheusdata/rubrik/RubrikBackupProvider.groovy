@@ -158,7 +158,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 			optionSource: 'getVmWareProtectionPolicyNameOptions', category: 'backup.rubrik', fieldName: 'backupPolicy',
 			fieldCode: 'backupPolicy', fieldLabel: 'Backup Policy', fieldContext: 'config',
 			required: true, enabled:true, editable:true, global: false, placeHolder :null, helpBlock:'',
-			defaultValue:null, custom: false, displayOrder:2, fieldClass:null
+			defaultValue:null, custom: false, displayOrder:2, fieldClass:null, dependsOn:"backup.rubrik.consistency"
 		)
 
 		return optionTypes;
