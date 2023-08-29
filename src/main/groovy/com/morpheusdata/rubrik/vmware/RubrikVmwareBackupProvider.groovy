@@ -44,11 +44,6 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 	}
 
 	@Override
-	boolean isPlugin() {
-		return super.isPlugin()
-	}
-
-	@Override
 	String getContainerType() {
 		return "single"
 	}
