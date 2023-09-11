@@ -3,6 +3,7 @@ package com.morpheusdata.rubrik.vmware.services
 import com.morpheusdata.core.util.RestApiUtil
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.services.ApiService
+import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -230,6 +231,9 @@ class RubrikVmwareApiService extends ApiService {
 				if(!doRetry) {
 					keepGoing = false
 				}
+			} else if(restoreRequestResult.data.request.status == "FAILED") {
+				rtn.msg = getApiError(restoreRequestResult.data.request)
+				keepGoing = false
 			} else if(attempt > maxAttempts || restoreRequestResult.success == false) {
 				keepGoing = false
 			}
@@ -240,6 +244,18 @@ class RubrikVmwareApiService extends ApiService {
 			}
 		}
 
+		return rtn
+	}
+
+	def getApiError(Map apiResponse) {
+		def rtn = null
+		def errorMessage = [:]
+		if(apiResponse?.error?.message) {
+			errorMessage = new groovy.json.JsonSlurper().parseText(apiResponse.error.message)
+		}
+		if(errorMessage) {
+			rtn = errorMessage?.cause?.reason ?: errorMessage?.message
+		}
 		return rtn
 	}
 }
