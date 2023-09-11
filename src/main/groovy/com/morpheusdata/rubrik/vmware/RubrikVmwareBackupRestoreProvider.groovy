@@ -122,10 +122,10 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 									def restoreOpts = [
 										datastoreId: datastore.id,
 										hostId     : hostId,
-										vmName     : targetWorkload.name
+										vmName     : targetWorkload.server?.name ?: targetWorkload.internalName
 									]
 									ServiceResponse restoreResults = apiService.restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, restoreOpts)
-
+									log.debug("restoreResults: ${restoreResults}")
 									if(restoreResults.success) {
 										ServiceResponse restoreTaskResults = apiService.waitForRestoredVirtualMachine(authConfig, restoreResults.data.restoreRequest.id)
 										log.debug("wait for restore vm restults: ${restoreTaskResults}")
@@ -134,8 +134,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 											rtn.success = true
 										} else {
 											rtn.success = false
-											rtn.msg = "Failed to restore virtual machine"
+											rtn.msg = restoreTaskResults.msg ?: "Failed to restore virtual machine"
 										}
+
 
 										rtn.data.updates = true
 										rtn.data.backupRestore.externalStatusRef = restoreResults.data.restoreRequest.id
@@ -164,6 +165,15 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				} else {
 					rtn.success = false
 					rtn.msg = "Unable to determine source datastore"
+				}
+
+				if(rtn.success == false) {
+					rtn.data.updates = true
+					rtn.data.backupRestore.status = MorpheusBackupStatusUtility.FAILED
+					if(rtn.data.backupRestore.errorMessage == null && rtn.msg) {
+						rtn.data.backupRestore.errorMessage = rtn.msg
+					}
+
 				}
 			} else {
 				log.debug("Restoring to existing VM with snapshot ID: ${backupResult.externalId}")
@@ -194,53 +204,60 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 		log.debug("refreshBackupRestoreResult: backupResult:${backupResult.id}, restore:${backupRestore.id}")
 		ServiceResponse<BackupRestoreResponse> rtn = ServiceResponse.prepare(new BackupRestoreResponse(backupRestore))
 		try{
+			log.debug("Restore status: status:${backupRestore.status}, errorMessage: ${backupRestore.errorMessage}")
 			Backup backup = backupResult.backup
 			BackupProvider backupProvider = backup.backupProvider
 			def authConfig = apiService.getAuthConfig(backupProvider)
 			String restoreRequestId = backupRestore.externalStatusRef
 			log.debug("restore request id: {}", restoreRequestId)
-			ServiceResponse restoreRequestResult = apiService.getVmTaskRequest(authConfig, restoreRequestId)
-			log.debug("restoreRequestResult: {}", restoreRequestResult)
-			Map restoreRequest = restoreRequestResult.data.request
+			if(restoreRequestId) {
+				ServiceResponse restoreRequestResult = apiService.getVmTaskRequest(authConfig, restoreRequestId)
+				log.debug("restoreRequestResult: {}", restoreRequestResult)
+				Map restoreRequest = restoreRequestResult.data.request
 
-			Long targetWorkloadId = backupRestore?.containerId
-			Workload targetWorkload = plugin.morpheus.workload.get(targetWorkloadId).blockingGet()
+				Long targetWorkloadId = backupRestore?.containerId
+				Workload targetWorkload = plugin.morpheus.workload.get(targetWorkloadId).blockingGet()
 
-			log.debug("restoreSession: ${restoreRequest}")
-			if(restoreRequest) {
-				if(restoreRequest.status == "SUCCEEDED") {
-					def resultLink = restoreRequest.links.find { it.rel == "result" }
-					if(resultLink) {
-						def restoreResultId = apiService.extractUuid(resultLink.href)
+				log.debug("restoreSession: ${restoreRequest}")
+				if(restoreRequest) {
+					if(restoreRequest.status == "SUCCEEDED") {
+						def resultLink = restoreRequest.links.find { it.rel == "result" }
+						if(resultLink) {
+							def restoreResultId = apiService.extractUuid(resultLink.href)
 
-						def vmDetailResults = apiService.getRestoredVirtualMachine(authConfig, restoreResultId)
-						if(vmDetailResults.success && !vmDetailResults.data.retry) {
-							rtn.data.backupRestore.externalId = vmDetailResults.data.moid // might need to get the VM info from the restore result links
-						} else if(vmDetailResults.success && vmDetailResults.retry) {
-							restoreRequest.status = MorpheusBackupStatusUtility.IN_PROGRESS
-						} else {
-							restoreRequest.status = MorpheusBackupStatusUtility.FAILED
+							def vmDetailResults = apiService.getRestoredVirtualMachine(authConfig, restoreResultId)
+							if(vmDetailResults.success && !vmDetailResults.data.retry) {
+								rtn.data.backupRestore.externalId = vmDetailResults.data.moid // might need to get the VM info from the restore result links
+							} else if(vmDetailResults.success && vmDetailResults.retry) {
+								restoreRequest.status = MorpheusBackupStatusUtility.IN_PROGRESS
+							} else {
+								restoreRequest.status = MorpheusBackupStatusUtility.FAILED
+							}
 						}
 					}
-				}
-				rtn.data.backupRestore.status = RubrikBackupStatusUtility.getBackupStatus(restoreRequest.status) ?: backupRestore.status
-				log.debug("Backup restore status: ${rtn.data.backupRestore.status}")
-				Date startDate = DateUtility.parseDate(restoreRequest.startTime)
-				Date endDate = DateUtility.parseDate(restoreRequest.endTime)
-				rtn.data.backupRestore.startDate = startDate
-				rtn.data.backupRestore.lastUpdated = new Date()
-				if(startDate && endDate) {
-					Long start = startDate?.getTime()
-					Long end = endDate?.getTime()
-					rtn.data.backupRestore.endDate = end ? new Date(end) : null
-					rtn.data.backupRestore.duration = (start && end) ? (end - start) : 0
-				}
-				if(rtn.data.backupRestore.status == MorpheusBackupStatusUtility.FAILED && restoreRequest.error?.message) {
-					rtn.data.backupRestore.errorMessage = restoreRequest.error.message
-				}
+					rtn.data.backupRestore.status = RubrikBackupStatusUtility.getBackupStatus(restoreRequest.status) ?: backupRestore.status
+					log.debug("Backup restore status: ${rtn.data.backupRestore.status}")
+					Date startDate = DateUtility.parseDate(restoreRequest.startTime)
+					Date endDate = DateUtility.parseDate(restoreRequest.endTime)
+					rtn.data.backupRestore.startDate = startDate
+					rtn.data.backupRestore.lastUpdated = new Date()
+					if(startDate && endDate) {
+						Long start = startDate?.getTime()
+						Long end = endDate?.getTime()
+						rtn.data.backupRestore.endDate = end ? new Date(end) : null
+						rtn.data.backupRestore.duration = (start && end) ? (end - start) : 0
+					}
+					if(rtn.data.backupRestore.status == MorpheusBackupStatusUtility.FAILED && restoreRequest.error?.message) {
+						rtn.data.backupRestore.errorMessage = restoreRequest.error.message
+					}
 
-				updateRestoredInstanceStatusFromRestoreStatus(rtn.data.backupRestore, targetWorkload.instance, targetWorkload)
-				plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
+					updateRestoredInstanceStatusFromRestoreStatus(rtn.data.backupRestore, targetWorkload.instance, targetWorkload)
+					plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
+				} else {
+					rtn.data.backupRestore.status = MorpheusBackupStatusUtility.FAILED
+					rtn.data.backupRestore.errorMessage = "No restore request found."
+					plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
+				}
 			}
 		} catch(Exception ex) {
 			log.error("refreshBackupRestoreResult error", ex)
