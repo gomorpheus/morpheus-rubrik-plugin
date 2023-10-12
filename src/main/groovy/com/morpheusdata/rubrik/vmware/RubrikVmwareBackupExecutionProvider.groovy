@@ -60,14 +60,14 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				def authConfig = apiService.getAuthConfig(backupProvider)
 				def morphServer = null
 				if(backup.computeServerId) {
-					morphServer = plugin.morpheus.computeServer.get(backup.computeServerId).blockingGet()
+					morphServer = plugin.morpheus.async.computeServer.get(backup.computeServerId).blockingGet()
 				}
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
 					ServiceResponse vmIdResult = apiService.waitForVirtualMachine(authConfig, morphServer.externalId, backupProvider)
 					log.debug("vmIdResult: ${vmIdResult}")
 					if(vmIdResult.success && vmIdResult.data.virtualMachine?.id) {
-						def slaDomain = plugin.morpheus.referenceData.get(slaDomainId.toLong()).blockingGet()
+						def slaDomain = plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
 						// if we find the id, update the vm with the sla domain
 						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomain?.externalId}")
 						rtn = apiService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: slaDomain?.externalId])
@@ -99,7 +99,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 					def morphServerId = opts.server?.id ?: backup.computeServerId
 					if(morphServerId) {
 						try {
-							morphServer = plugin.morpheus.computeServer.get(morphServerId).blockingGet()
+							morphServer = plugin.morpheus.async.computeServer.get(morphServerId).blockingGet()
 						} catch (Throwable t2) {
 							// this is expected, the Single returned doesn't handle optional so we have
 							// to catch the exception here if the backup had been retained from the
@@ -190,7 +190,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				if(vmIdResults.success && vmIdResults.data.virtualMachine?.id) {
 					// disable cloud init and clear cache to force cloud init on restore
 					if(computeServer.sourceImage && computeServer.sourceImage.isCloudInit && computeServer.serverOs?.platform != 'windows') {
-						getPlugin().morpheus.executeCommandOnServer(computeServer, 'sudo rm -f /etc/cloud/cloud.cfg.d/99-manual-cache.cfg; sudo cp /etc/machine-id /tmp/machine-id-old ; sync', true, computeServer.sshUsername, computeServer.sshPassword, null, null, null, null, true, true).blockingGet()
+						plugin.morpheus.executeCommandOnServer(computeServer, 'sudo rm -f /etc/cloud/cloud.cfg.d/99-manual-cache.cfg; sudo cp /etc/machine-id /tmp/machine-id-old ; sync', true, computeServer.sshUsername, computeServer.sshPassword, null, null, null, null, true, true).blockingGet()
 					}
 
 					String vmId = vmIdResults.data.virtualMachine?.id

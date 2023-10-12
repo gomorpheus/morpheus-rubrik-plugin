@@ -216,7 +216,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				Map restoreRequest = restoreRequestResult.data.request
 
 				Long targetWorkloadId = backupRestore?.containerId
-				Workload targetWorkload = plugin.morpheus.workload.get(targetWorkloadId).blockingGet()
+				Workload targetWorkload = plugin.morpheus.async.workload.get(targetWorkloadId).blockingGet()
 
 				log.debug("restoreSession: ${restoreRequest}")
 				if(restoreRequest) {
@@ -252,11 +252,11 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					}
 
 					updateRestoredInstanceStatusFromRestoreStatus(rtn.data.backupRestore, targetWorkload.instance, targetWorkload)
-					plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
+					plugin.morpheus.async.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
 				} else {
 					rtn.data.backupRestore.status = MorpheusBackupStatusUtility.FAILED
 					rtn.data.backupRestore.errorMessage = "No restore request found."
-					plugin.morpheus.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
+					plugin.morpheus.async.backup.backupRestore.save(rtn.data.backupRestore).blockingGet()
 				}
 			}
 		} catch(Exception ex) {
@@ -285,7 +285,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			}
 
 			if(doSave) {
-				plugin.morpheus.instance.save([instance])
+				plugin.morpheus.async.instance.save([instance])
 			}
 		} catch (e) {
 			log.error("Error updating instance status: ${e}", e)

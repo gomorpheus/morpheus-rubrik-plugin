@@ -277,7 +277,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 				backupProviderModel.type = loadFullBackupProviderType(backupProviderModel)
 				def testResults = verifyAuthentication(backupProviderModel, apiOpts)
 				if(testResults.success == true) {
-					morpheus.backupProvider.updateStatus(backupProviderModel, 'ok', null).subscribe().dispose()
+					morpheus.async.backupProvider.updateStatus(backupProviderModel, 'ok', null).subscribe().dispose()
 					getSlaDomainService().executeCache(backupProviderModel, authConfig)
 					// Execute refresh on sub providers (vmware, aws, hyperv, etc)
 					// each provider has unique API endpoints for things like snapshots
@@ -287,13 +287,13 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 					}
 				} else {
 					if(testResults.invalidLogin == true) {
-						morpheus.backupProvider.updateStatus(backupProviderModel, 'error', 'invalid credentials').subscribe().dispose()
+						morpheus.async.backupProvider.updateStatus(backupProviderModel, 'error', 'invalid credentials').subscribe().dispose()
 					} else {
-						morpheus.backupProvider.updateStatus(backupProviderModel, 'error', 'error connecting').subscribe().dispose()
+						morpheus.async.backupProvider.updateStatus(backupProviderModel, 'error', 'error connecting').subscribe().dispose()
 					}
 				}
 			} else {
-				morpheus.backupProvider.updateStatus(backupProviderModel, 'offline', 'Rubrik service not reachable').subscribe().dispose()
+				morpheus.async.backupProvider.updateStatus(backupProviderModel, 'offline', 'Rubrik service not reachable').subscribe().dispose()
 			}
 			rtn.success = true
 		} catch(e) {
@@ -326,7 +326,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	}
 
 	private loadFullBackupProviderType(BackupProviderModel backupProviderModel) {
-		BackupProviderType backupProviderTypeModel = plugin.morpheus.backupProvider.type.getById(backupProviderModel.type.id).blockingGet()
+		BackupProviderType backupProviderTypeModel = morpheus.async.backupProvider.type.getById(backupProviderModel.type.id).blockingGet()
 		return backupProviderTypeModel ?: backupProviderModel.type
 	}
 }
