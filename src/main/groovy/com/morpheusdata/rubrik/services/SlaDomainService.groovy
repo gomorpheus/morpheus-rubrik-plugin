@@ -87,7 +87,8 @@ class SlaDomainService {
 				name: remoteItem.name,
 				keyValue: remoteItem.id,
 				value: remoteItem.id,
-				externalId: remoteItem.id
+				externalId: remoteItem.id,
+				type: 'string'
 			)
 			add.setConfigMap(remoteItem)
 			newItems << add
