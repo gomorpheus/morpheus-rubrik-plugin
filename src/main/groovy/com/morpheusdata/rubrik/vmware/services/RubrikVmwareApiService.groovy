@@ -79,15 +79,18 @@ class RubrikVmwareApiService extends ApiService {
 				vmId = resourceId
 			} else {
 				def mountDetailResults = getMount(authConfig, resourceId)
+				log.debug("getRestoredVirtualMachine, Mount detail results: $mountDetailResults")
 				if(mountDetailResults.success == false) {
-					rtn = [success: false, msg: "Mount not found", retry: true]
+					rtn = [success: false, msg: "Mount not found", data: [retry: true]]
 				}
 				if(mountDetailResults.success) {
-					vmId = mountDetailResults.data.mountedVmId
+					vmId = mountDetailResults.data.mount.mountedVmId
 				}
 			}
+			log.debug("getRestoredVirtualMachine vmId: $vmId")
 			if(vmId) {
 				def vmDetailRequest = getVirtualMachine(authConfig, vmId)
+				log.debug("vmId results: $vmDetailRequest")
 				if(vmDetailRequest.success) {
 					rtn.data = vmDetailRequest.data
 					rtn.success = true
