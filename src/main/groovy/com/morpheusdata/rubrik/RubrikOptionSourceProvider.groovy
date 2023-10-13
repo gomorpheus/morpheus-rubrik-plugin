@@ -51,18 +51,17 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 		args = args instanceof Object[] ? args.getAt(0) : args
 		log.debug("plugin rubrikSlaDomains args: ${args}")
 		def rtn = []
+		def cloudId = args.cloudId ?: args.zoneId
 		Cloud cloud
 		BackupProvider backupProvider
-		// if(args.containerId && !args.zoneId) {
-		// 		zone = Container.where{ account == tmpAccount && id == args.containerId.toLong() }.get()?.server?.zone
-		// }
-		if(!cloud && args.cloudId) {
-
-			cloud = morpheus.services.cloud.get(Long.parseLong(args.cloudId))
+		if(!cloudId && args.containerId) {
+			cloud = morpheus.services.workload.find(new DataQuery().withFilter('id', args.containerId.toLong()))?.server?.cloud
+		}
+		if(!cloud && cloudId) {
+			cloud = morpheus.services.cloud.get(Long.parseLong(cloudId))
 			log.debug("cloud: $cloud")
 			log.debug("cloud backupProvider: $cloud.backupProvider")
 			log.debug("cloud backupProvider type: $cloud.backupProvider.type")
-
 		}
 
 		if(cloud && cloud.backupProvider) {
