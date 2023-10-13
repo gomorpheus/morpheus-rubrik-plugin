@@ -97,7 +97,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				log.debug("restoring to new VM")
 				// restore to a new virtual machine
 				def sourceWorkload = plugin.morpheus.async.workload.get(backupResult.containerId).blockingGet()
-				ComputeServer sourceServer = sourceWorkload?.server
+				ComputeServer sourceServer = plugin.morpheus.services.computeServer.get(sourceWorkload.server.id)
 				Long sourceRootVolumeId = sourceServer?.volumes?.find { it.rootVolume }?.id
 				StorageVolume sourceRootVolume
 				DatastoreIdentity sourceDatastore
@@ -110,7 +110,6 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				def targetWorkload = plugin.morpheus.async.workload.get(targetWorkloadId).blockingGet()
 
 				if(sourceServer && sourceDatastore) {
-					log.debug("Source server ext ID: ${sourceServer.externalId}")
 					ServiceResponse vmIdResults = apiService.waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
 					log.debug("vmIdResults: ${vmIdResults}")
 					if(vmIdResults.success && vmIdResults.data.virtualMachine.id) {
