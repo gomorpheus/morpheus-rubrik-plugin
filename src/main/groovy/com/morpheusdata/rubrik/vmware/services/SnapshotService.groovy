@@ -154,7 +154,7 @@ class SnapshotService {
 			Map remoteItem = updateMap.masterItem
 			def doUpdate = false
 
-			if(localItem.backupName != remoteItem.name) {
+			if(remoteItem.name != null && localItem.backupName != remoteItem.name) {
 				localItem.backupName = remoteItem.name
 				doUpdate = true
 			}
@@ -165,7 +165,7 @@ class SnapshotService {
 
 		}
 		if(updateList.size() > 0) {
-			plugin.morpheus.async.backup.backupResult.save(updateList).blockingGet()
+			plugin.morpheus.async.backup.backupResult.bulkSave(updateList).blockingGet()
 		}
 	}
 
