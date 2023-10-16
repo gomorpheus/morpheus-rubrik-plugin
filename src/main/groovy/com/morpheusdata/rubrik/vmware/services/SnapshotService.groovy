@@ -2,6 +2,10 @@ package com.morpheusdata.rubrik.vmware.services
 
 import com.morpheusdata.core.backup.util.BackupResultUtility
 import com.morpheusdata.core.backup.util.BackupStatusUtility
+import com.morpheusdata.core.data.DataAndFilter
+import com.morpheusdata.core.data.DataFilter
+import com.morpheusdata.core.data.DataOrFilter
+import com.morpheusdata.core.data.DataQuery
 import com.morpheusdata.core.util.DateUtility
 import com.morpheusdata.core.util.SyncTask
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
@@ -32,15 +36,15 @@ class SnapshotService {
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
 		log.debug("executeCache: ${backupProviderModel.id}")
 		try {
-			plugin.morpheus.backup.listIdentityProjections(backupProviderModel)
+			plugin.morpheus.async.backup.listIdentityProjections(backupProviderModel)
 				.doOnError() { e -> log.error("executeCache, error loading backup identity projections: ${e.message}", e) }
 				.buffer(50)
 				.flatMap() {  providerBackupIdp ->
-					plugin.morpheus.backup.listById(providerBackupIdp.collect { it.id })
+					plugin.morpheus.async.backup.listById(providerBackupIdp.collect { it.id })
 				}
 				.buffer(50)
 				.flatMap(){ List<BackupModel> backups ->
-					plugin.morpheus.computeServer.listById(backups.collect { it.computeServerId })
+					plugin.morpheus.async.computeServer.listById(backups.collect { it.computeServerId })
 						.map { ComputeServerModel server ->
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
@@ -58,13 +62,28 @@ class SnapshotService {
 						log.error(errorMsg)
 					}
 
-					Observable<BackupResultIdentityProjection> backupResultIdentityProjections = plugin.morpheus.backup.backupResult.listIdentityProjectionsByAccount(backupProviderModel.account.id, backupServerDto.backup)
-
+					Observable<BackupResultIdentityProjection> backupResultIdentityProjections = plugin.morpheus.async.backup.backupResult.listIdentityProjections(
+						new DataQuery(backupProviderModel.account)
+							.withFilters(
+								new DataFilter('backup.id', '=', backupServerDto.backup.id),
+								new DataFilter('status', '!=', BackupResultModel.Status.START_REQUESTED),
+								new DataFilter('status', '!=', BackupResultModel.Status.INITIALIZING),
+								new DataFilter('status', '!=', BackupResultModel.Status.CANCELLED)
+							)
+					)
 					SyncTask<BackupResultIdentityProjection, Map, BackupResultModel> syncTask = new SyncTask(backupResultIdentityProjections, snapshotList)
 					syncTask.addMatchFunction { BackupResultIdentityProjection localItem, Map remoteItem ->
 						localItem.externalId == remoteItem.id
 					}.onDelete { List<BackupResultIdentityProjection> deleteList ->
-						removeUnmatchedItems(deleteList)
+						List<BackupResultIdentityProjection> filteredDeleteList = plugin.morpheus.services.backup.backupResult.listIdentityProjections(
+							new DataQuery(backupProviderModel.account)
+								.withFilter('id', 'in', deleteList.collect { it.id })
+								.withFilter('status', '!=', BackupResultModel.Status.START_REQUESTED)
+								.withFilter('status', '!=', BackupResultModel.Status.INITIALIZING)
+								.withFilter('status', '!=', BackupResultModel.Status.CANCELLED)
+								.withFilter('status', '!=', BackupResultModel.Status.IN_PROGRESS)
+						)
+						removeUnmatchedItems(filteredDeleteList)
 					}.onAdd { List<Map> createList ->
 						addMissingItems(createList, backupServerDto.backup, backupProviderModel)
 					}.withLoadObjectDetails { List<SyncTask.UpdateItemDto<BackupResultIdentityProjection, Map>> updateItems ->
@@ -91,7 +110,7 @@ class SnapshotService {
 	private loadObjectDetails(List<SyncTask.UpdateItemDto<BackupResultIdentityProjection, Map>> itemList) {
 		Map<Long, SyncTask.UpdateItemDto<BackupResultIdentityProjection, Map>> updateItemMap = itemList.collectEntries { [(it.existingItem.id): it]}
 		List<Long> existingItemIds = itemList.collect { it.existingItem.id }
-		Observable<BackupResultModel> itemDetailsList = plugin.morpheus.backup.backupResult.listById(existingItemIds)
+		Observable<BackupResultModel> itemDetailsList = plugin.morpheus.async.backup.backupResult.listById(existingItemIds)
 		return itemDetailsList.map { BackupResultModel backupResultModel ->
 			SyncTask.UpdateItemDto<BackupResultIdentityProjection, Map> matchItem = updateItemMap[backupResultModel.id]
 			return new SyncTask.UpdateItem<BackupResultModel, Map>(existingItem:backupResultModel, masterItem:matchItem.masterItem)
@@ -146,13 +165,13 @@ class SnapshotService {
 
 		}
 		if(updateList.size() > 0) {
-			plugin.morpheus.backup.backupResult.save(updateList).blockingGet()
+			plugin.morpheus.async.backup.backupResult.save(updateList).blockingGet()
 		}
 	}
 
 	private removeUnmatchedItems(Collection itemList) {
 		log.debug("removing backup results {}", itemList.collect { it.id })
-		plugin.morpheus.backup.backupResult.remove(itemList).blockingGet()
+		plugin.morpheus.async.backup.backupResult.remove(itemList).blockingGet()
 	}
 
 }
