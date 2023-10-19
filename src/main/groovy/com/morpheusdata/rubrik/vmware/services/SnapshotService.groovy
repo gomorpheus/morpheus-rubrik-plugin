@@ -18,7 +18,7 @@ import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.RubrikPlugin
 import com.morpheusdata.rubrik.services.ApiService
 import groovy.util.logging.Slf4j
-import io.reactivex.Observable
+import io.reactivex.rxjava3.core.Observable
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -39,16 +39,16 @@ class SnapshotService {
 			plugin.morpheus.async.backup.listIdentityProjections(backupProviderModel)
 				.doOnError() { e -> log.error("executeCache, error loading backup identity projections: ${e.message}", e) }
 				.buffer(50)
-				.flatMap() {  providerBackupIdp ->
+				.concatMap {  providerBackupIdp ->
 					plugin.morpheus.async.backup.listById(providerBackupIdp.collect { it.id })
 				}
 				.buffer(50)
-				.flatMap(){ List<BackupModel> backups ->
+				.concatMap { List<BackupModel> backups ->
 					plugin.morpheus.async.computeServer.listById(backups.collect { it.computeServerId })
 						.map { ComputeServerModel server ->
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
-				}.flatMap() {  Map<String, MorpheusModel> backupServerDto ->
+				}.concatMap {  Map<String, MorpheusModel> backupServerDto ->
 					ServiceResponse snapshotListResults = apiService.listSnapshotsForVirtualMachine(authConfig, backupServerDto.server.externalId)
 					log.debug("snapshotLIstResults: ${snapshotListResults}")
 					List<Map> snapshotList = []

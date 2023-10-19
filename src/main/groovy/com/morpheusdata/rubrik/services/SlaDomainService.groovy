@@ -9,7 +9,7 @@ import com.morpheusdata.model.BackupProvider as BackupProviderModel
 import com.morpheusdata.model.BackupProviderType as BackupProviderTypeModel
 import com.morpheusdata.rubrik.RubrikPlugin
 import groovy.util.logging.Slf4j
-import io.reactivex.Observable
+import io.reactivex.rxjava3.core.Observable
 
 @Slf4j
 class SlaDomainService {
