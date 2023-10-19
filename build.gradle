@@ -10,6 +10,7 @@ buildscript {
 	dependencies {
 		classpath "com.github.jengelman.gradle.plugins:shadow:6.0.0"
 		classpath "com.bertramlabs.plugins:asset-pipeline-gradle:$assetPipelineVersion"
+		classpath "com.morpheusdata:morpheus-plugin-gradle:1.0.0"
 	}
 }
 
@@ -18,6 +19,7 @@ apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'asset-pipeline'
+apply plugin: 'com.morpheusdata.morpheus-plugin-gradle'
 
 group = 'com.morpheusdata.rubrik'
 sourceCompatibility = '1.8'
