@@ -1,0 +1,21 @@
+query vsphereVCenterHosts {
+  vSphereVCenterConnection {
+    nodes {
+      descendantConnection (typeFilter: VSphereHost) {
+        nodes {
+          name
+          id
+          numWorkloadDescendants
+          effectiveSlaDomain {
+            name
+            id
+          }
+          cluster {
+            name
+            id
+          }
+        }
+      }
+    }
+  }
+}

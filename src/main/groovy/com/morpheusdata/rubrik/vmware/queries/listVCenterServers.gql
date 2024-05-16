@@ -1,0 +1,23 @@
+query listVCenterServers {
+    vSphereVCenterConnection {
+        nodes {
+            id
+            name
+            vcenterId
+            username
+            connectionStatus {
+                status
+                message
+            }
+            cluster {
+                id
+                name
+            }
+            effectiveSlaDomain {
+                id
+                name
+            }
+            numWorkloadDescendants
+        }
+    }
+}

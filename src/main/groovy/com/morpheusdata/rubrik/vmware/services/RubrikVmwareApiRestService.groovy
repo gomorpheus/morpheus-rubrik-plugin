@@ -1,13 +1,13 @@
 package com.morpheusdata.rubrik.vmware.services
 
-import com.morpheusdata.core.util.RestApiUtil
+import com.morpheusdata.core.util.HttpApiClient
 import com.morpheusdata.response.ServiceResponse
-import com.morpheusdata.rubrik.services.ApiService
+import com.morpheusdata.rubrik.services.ApiRestService
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 
 @Slf4j
-class RubrikVmwareApiService extends ApiService {
+class RubrikVmwareApiRestService extends ApiRestService {
 
 	ServiceResponse listVirtualMachines(Map authConfig) {
 		return internalGetApiRequest(authConfig, '/vmware/vm', 'virtualMachines')
@@ -47,7 +47,7 @@ class RubrikVmwareApiService extends ApiService {
 		return internalPostApiRequest(authConfig, '/vmware/vm/' + vmExternalId + '/snapshot', 'backupRequest')
 	}
 
-	ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, Map opts=[:]) {
+	ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
 		Map body = [
 			powerOn: true,
 			disableNetwork: false,
@@ -59,7 +59,7 @@ class RubrikVmwareApiService extends ApiService {
 		return internalPostApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId + '/instant_recover', 'restoreRequest', body)
 	}
 
-	ServiceResponse restoreSnapshotToNewVirtualMachine(Map authConfig, String snapshotId, Map opts=[:]) {
+	ServiceResponse restoreSnapshotToNewVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
 		Map body = [
 			powerOn: true,
 			disableNetwork: false,

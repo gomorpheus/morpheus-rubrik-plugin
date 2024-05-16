@@ -1,0 +1,7 @@
+mutation deleteSnapshot ($snapshotIds: [UUID!]!) {
+    deleteUnmanagedSnapshots(input: {
+        snapshotIds: $snapshotIds
+    }) {
+        success
+    }
+}

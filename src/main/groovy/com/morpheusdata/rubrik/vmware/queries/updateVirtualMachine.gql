@@ -1,0 +1,12 @@
+mutation updateVirtualMachine ($id: String!, $configuredSlaDomainId: String ) {
+    updateVsphereVm (input: {
+        id: $id,
+        vmUpdateProperties: {
+            virtualMachineUpdate: {
+                configuredSlaDomainId: $configuredSlaDomainId
+            }
+        }
+    }) {
+        success
+    }
+}

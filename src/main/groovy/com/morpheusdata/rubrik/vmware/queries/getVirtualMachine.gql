@@ -1,0 +1,19 @@
+query getVirtualMachine ($id: [String!]) {
+    vSphereDetailData: vSphereVmNew(fid: $id) {
+        id
+        name
+        effectiveSlaDomain {
+            id
+            name
+        }
+        slaPauseStatus
+        cluster {
+            id
+            name
+        }
+        totalSnapshots: snapshotConnection {
+            count
+        }
+        onDemandSnapshotCount
+    }
+}

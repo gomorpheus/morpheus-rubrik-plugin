@@ -1,0 +1,32 @@
+query getVmTaskRequest ($clusterUuid: UUID!, $requestId: String!) {
+    vSphereVMAsyncRequestStatus (clusterUuid:$clusterUuid, id: $requestId) {
+        id
+        status
+    }
+}
+
+query getVmTaskRequest ($id: [String!]) {
+    vSphereDetailData: vSphereVmNew(fid: $id) {
+        id
+        name
+        effectiveSlaDomain {
+            id
+            name
+        }
+        slaPauseStatus
+        cluster {
+            id
+            name
+        }
+        totalSnapshots: snapshotConnection {
+            count
+        }
+        onDemandSnapshotCount
+    }
+}
+
+
+#{
+#    "clusterUuid": "d9254dfd-5460-4605-aee9-bffba382135c",
+#    "requestId": "CREATE_VMWARE_SNAPSHOT_1c55ff47-28ab-499f-9187-c1662f0961d9-vm-7015_70f6e416-d126-4657-bb7d-bf2803712c9b:::0"
+#}

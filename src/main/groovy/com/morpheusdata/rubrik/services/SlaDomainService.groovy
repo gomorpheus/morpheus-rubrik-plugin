@@ -1,12 +1,9 @@
 package com.morpheusdata.rubrik.services
 
 import com.morpheusdata.core.util.SyncTask
-import com.morpheusdata.model.NetworkDomain
 import com.morpheusdata.model.ReferenceData as ReferenceDataModel
-import com.morpheusdata.model.projection.NetworkDomainIdentityProjection
 import com.morpheusdata.model.projection.ReferenceDataSyncProjection
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
-import com.morpheusdata.model.BackupProviderType as BackupProviderTypeModel
 import com.morpheusdata.rubrik.RubrikPlugin
 import groovy.util.logging.Slf4j
 import io.reactivex.Observable
@@ -15,18 +12,20 @@ import io.reactivex.Observable
 class SlaDomainService {
 
 	private RubrikPlugin plugin
-	private ApiService apiService
+	private ApiRestService apiRestService
+	private ApiGqlService apiGqlService
 
 	SlaDomainService(RubrikPlugin plugin) {
 		this.plugin = plugin
-		this.apiService = new ApiService()
+		this.apiRestService = new ApiRestService()
+		this.apiGqlService = new ApiGqlService()
 	}
 
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
 		log.debug("executeCache: ${backupProviderModel.id}")
 		try {
 			def objectCategory = getObjectCategory(backupProviderModel)
-			def slaDomainResults = apiService.listSlaDomains(authConfig)
+			def slaDomainResults = backupProviderModel.platform == "rsc" ? apiGqlService.listSlaDomains(authConfig) : apiRestService.listSlaDomains(authConfig)
 			if(slaDomainResults.success && slaDomainResults.data?.size() > 0) {
 				List<Map> slaDomainList = slaDomainResults.data.slaDomains
 				Observable<ReferenceDataSyncProjection> referenceDataIdentityProjections = plugin.morpheus.referenceData.listByAccountIdAndCategory(backupProviderModel.account.id, objectCategory)

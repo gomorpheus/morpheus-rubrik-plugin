@@ -1,0 +1,18 @@
+query listHosts {
+    vSphereHostConnection {
+        nodes {
+            cdmId
+            id
+            name
+            effectiveSlaDomain {
+                id
+                name
+            }
+            cluster {
+                id
+                name
+            }
+            numWorkloadDescendants
+        }
+    }
+}

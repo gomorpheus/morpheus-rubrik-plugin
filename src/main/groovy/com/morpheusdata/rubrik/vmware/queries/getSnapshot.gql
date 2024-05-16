@@ -1,0 +1,22 @@
+query getSnapshot ($snapshotId: [UUID!]) {
+    vSphereVmNewConnection {
+        nodes {
+            cdmId
+            id
+            name
+            snapshotConnection (filter: {
+                snapshotId: $snapshotId
+            }) {
+                nodes {
+                    id
+                    cdmId
+                    cluster {
+                        id
+                        name
+                    }
+                    isOnDemandSnapshot
+                }
+            }
+        }
+    }
+}

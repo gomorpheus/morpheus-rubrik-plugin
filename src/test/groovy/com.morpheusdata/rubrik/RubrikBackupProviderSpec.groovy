@@ -3,7 +3,7 @@ package com.morpheusdata.rubrik
 
 import com.morpheusdata.core.Plugin
 import com.morpheusdata.core.MorpheusContext
-import com.morpheusdata.rubrik.services.ApiService
+import com.morpheusdata.rubrik.services.ApiRestService
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -13,7 +13,7 @@ class RubrikBackupProviderSpec extends Specification {
 	@Subject@Shared
 	RubrikBackupProvider provider
 	@Shared
-	ApiService apiService
+	ApiRestService apiService
 	@Shared
 	MorpheusContext context
 
@@ -21,7 +21,7 @@ class RubrikBackupProviderSpec extends Specification {
 	def setup() {
 		Plugin plugin = Mock(Plugin)
 		MorpheusContext context = Mock(MorpheusContext)
-		apiService = Mock(ApiService)
+		apiService = Mock(ApiRestService)
 		provider = new RubrikBackupProvider(plugin, context, apiService)
 	}
 

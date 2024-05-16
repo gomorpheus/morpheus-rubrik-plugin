@@ -1,0 +1,16 @@
+query getHost ($fid: UUID!) {
+    vSphereHost (fid: $fid) {
+        cdmId
+        id
+        name
+        cluster {
+            id
+            name
+        }
+        effectiveSlaDomain {
+            id
+            name
+        }
+        numWorkloadDescendants
+    }
+}

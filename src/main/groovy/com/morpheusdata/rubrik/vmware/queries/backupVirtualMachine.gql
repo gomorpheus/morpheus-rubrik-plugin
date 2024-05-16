@@ -1,0 +1,12 @@
+mutation backupVirtualMachine ($slaId: String, $id: String!) {
+    vsphereOnDemandSnapshot (input: {
+        config: {
+            slaId: $slaId
+        },
+        id: $id,
+        userNote: ""
+    }) {
+        id
+        status
+    }
+}

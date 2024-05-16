@@ -1,0 +1,20 @@
+mutation VSphereVmExportSnapshotV3Mutation($id: String!, $snapshotId: String, $hostId: String, $disableNetwork: Boolean, $powerOn: Boolean, $vmName: String, $storageLocationId: String) {
+    vsphereVmExportSnapshotV3(input: {
+        id: $id,
+        config: {
+            hostId: $hostId,
+            storageLocationId: $storageLocationId,
+            mountExportSnapshotJobCommonOptionsV2: {
+                disableNetwork: $disableNetwork,
+                powerOn: $powerOn,
+                vmName: $vmName
+            },
+            requiredRecoveryParameters: {
+                snapshotId: $snapshotId
+            }
+        }
+    }) {
+        id
+        status
+    }
+}

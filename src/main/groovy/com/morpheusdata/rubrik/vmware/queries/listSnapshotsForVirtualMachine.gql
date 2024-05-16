@@ -1,0 +1,12 @@
+query SnapshotsListSingleQuery($workloadId: String!) {
+    snapshotsListConnection: snapshotOfASnappableConnection(workloadId: $workloadId) {
+        nodes {
+            id
+            date
+            expirationDate
+            isExpired
+            isOnDemandSnapshot
+            snappableId
+        }
+    }
+}

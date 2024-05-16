@@ -3,7 +3,6 @@ package com.morpheusdata.rubrik.vmware
 import com.morpheusdata.core.Plugin;
 import com.morpheusdata.core.backup.BackupExecutionProvider
 import com.morpheusdata.core.backup.response.BackupExecutionResponse
-import com.morpheusdata.core.backup.util.BackupResultUtility as MoprheusBackupResultUtility
 import com.morpheusdata.core.backup.util.BackupStatusUtility as MorpheusBackupStatusUtility
 import com.morpheusdata.core.util.DateUtility
 import com.morpheusdata.model.Backup
@@ -13,9 +12,9 @@ import com.morpheusdata.model.Cloud
 import com.morpheusdata.model.ComputeServer
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.util.RubrikBackupStatusUtility
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiService
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiRestService
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiGqlService
 import groovy.util.logging.Slf4j
-import org.apache.tools.ant.types.spi.Service
 
 @Slf4j
 class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
@@ -23,11 +22,14 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 	static String LOCK_NAME = "backups.rubrik.execution";
 
 	Plugin plugin
-	RubrikVmwareApiService apiService
+	RubrikVmwareApiRestService apiRestService
+	RubrikVmwareApiGqlService apiGqlService
+
 
 	RubrikVmwareBackupExecutionProvider(Plugin plugin) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiRestService = new RubrikVmwareApiRestService()
+		this.apiGqlService = new RubrikVmwareApiGqlService()
 	}
 
 	@Override
@@ -57,20 +59,20 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			def slaDomainId = opts.rubrikSlaDomain ?: backup.getConfigProperty('rubrikSlaDomain')
 			log.debug("slaDomainId: {}", slaDomainId)
 			if(slaDomainId) {
-				def authConfig = apiService.getAuthConfig(backupProvider)
+				def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
 				def morphServer = null
 				if(backup.computeServerId) {
 					morphServer = plugin.morpheus.computeServer.get(backup.computeServerId).blockingGet()
 				}
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
-					ServiceResponse vmIdResult = apiService.waitForVirtualMachine(authConfig, morphServer.externalId, backupProvider)
+					ServiceResponse vmIdResult = backupProvider.platform == "rsc" ? apiGqlService.waitForVirtualMachine(authConfig, morphServer.externalId, backupProvider) : apiRestService.waitForVirtualMachine(authConfig, morphServer.externalId, backupProvider)
 					log.debug("vmIdResult: ${vmIdResult}")
 					if(vmIdResult.success && vmIdResult.data.virtualMachine?.id) {
 						def slaDomain = plugin.morpheus.referenceData.get(slaDomainId.toLong()).blockingGet()
 						// if we find the id, update the vm with the sla domain
 						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomain?.externalId}")
-						rtn = apiService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: slaDomain?.externalId])
+						rtn = backupProvider.platform == "rsc" ? apiGqlService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: slaDomain?.externalId]) : apiRestService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: slaDomain?.externalId])
 					} else {
 						rtn.success = false
 						rtn.msg = "Unable to find vcenter virtual machine in Rubrik."
@@ -92,7 +94,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 		try {
 			def backupProvider = backup.backupProvider
 			if(backupProvider) {
-				def authConfig = apiService.getAuthConfig(backupProvider)
+				def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
 
 				if(backup.getConfigProperty("rubrikSlaDomain")) {
 					def morphServer = null
@@ -107,7 +109,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 						}
 					}
 					if(morphServer) {
-						rtn = apiService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
+						rtn = backupProvider.platform == "rsc" ? apiGqlService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: "INHERIT"]) : apiRestService.updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
 						log.debug("deleteBackup API results: {}", rtn)
 						if(!rtn.success && rtn.msg.contains("not found")) {
 							rtn.success = true
@@ -138,13 +140,13 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 		def backupProvider = backupResult.backup?.backupProvider
 		if(backupProvider) {
-			def authConfig = apiService.getAuthConfig(backupProvider)
+			def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
 
 			def resultConfig = backupResult.getConfigMap()
 			def isOnDemandSnapshot = resultConfig.containsKey("isOnDemandSnapshot") ? resultConfig.isOnDemandSnapshot : true
 			if(isOnDemandSnapshot) {
 				if(backupResult.externalId) {
-					ServiceResponse deleteResult = apiService.deleteSnapshot(authConfig, backupResult.externalId)
+					ServiceResponse deleteResult = backupProvider.platform == "rsc" ? apiGqlService.deleteSnapshot(authConfig, backupResult.externalId) : apiRestService.deleteSnapshot(authConfig, backupResult.externalId)
 					log.debug("deleteResult erroCode: ${deleteResult.errorCode}")
 					if(deleteResult.success || deleteResult.errorCode == "404") {
 						rtn.success = true
@@ -183,10 +185,10 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 		ServiceResponse<BackupExecutionResponse> rtn = ServiceResponse.prepare(new BackupExecutionResponse(backupResult))
 		try {
 			def backupProvider = backup.backupProvider
-			def authConfig = apiService.getAuthConfig(backupProvider)
+			def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
 
 			if(computeServer) {
-				ServiceResponse vmIdResults = apiService.waitForVirtualMachine(authConfig, computeServer.externalId, backupProvider)
+				ServiceResponse vmIdResults = backupProvider.platform == "rsc" ? apiGqlService.waitForVirtualMachine(authConfig, computeServer.externalId, backupProvider) : apiRestService.waitForVirtualMachine(authConfig, computeServer.externalId, backupProvider)
 				if(vmIdResults.success && vmIdResults.data.virtualMachine?.id) {
 					// disable cloud init and clear cache to force cloud init on restore
 					if(computeServer.sourceImage && computeServer.sourceImage.isCloudInit && computeServer.serverOs?.platform != 'windows') {
@@ -194,7 +196,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 					}
 
 					String vmId = vmIdResults.data.virtualMachine?.id
-					ServiceResponse backupRequestResult = apiService.backupVirtualMachine(authConfig, vmId)
+					ServiceResponse backupRequestResult = backupProvider.platform == "rsc" ? apiGqlService.backupVirtualMachine(authConfig, vmId) : apiRestService.backupVirtualMachine(authConfig, vmId)
 					log.debug("executeBackup requestResult: {}", backupRequestResult)
 					if(backupRequestResult.success == true) {
 						rtn.data.backupResult.status = RubrikBackupStatusUtility.getBackupStatus(backupRequestResult.data.backupRequest?.status)
@@ -236,18 +238,18 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 		try {
 			Backup backup = backupResult.backup
 			BackupProvider backupProvider = backup.backupProvider
-			Map authConfig = apiService.getAuthConfig(backupProvider)
+			Map authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
 
 			String snapshotId = null
 			String requestId = backupResult.getConfigProperty('backupRequestId')
 			if(requestId) {
-				ServiceResponse requestResult = apiService.getVmTaskRequest(authConfig, requestId)
+				ServiceResponse requestResult = backupProvider.platform == "rsc" ? apiGqlService.getVmTaskRequest(authConfig, requestId) : apiRestService.getVmTaskRequest(authConfig, requestId)
 				Map requestDetail = requestResult.data.request
 				if(!snapshotId && requestResult.success && requestDetail.status == RubrikBackupStatusUtility.STATUS_SUCCEEDED) {
 					log.debug("snapshot created successfully, getting snapshot info for backup result")
 					Map snapshotLink = requestDetail.links.find { it.rel == "result" }
 					if(snapshotLink) {
-						snapshotId = apiService.extractUuid(snapshotLink.href)
+						snapshotId = backupProvider.platform == "rsc" ? apiGqlService.extractUuid(snapshotLink.href) : apiRestService.extractUuid(snapshotLink.href)
 					}
 				}
 

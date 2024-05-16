@@ -1,35 +1,47 @@
 package com.morpheusdata.rubrik.vmware.services
 
-import com.morpheusdata.core.MorpheusContext
+
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.RubrikPlugin
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiService
 import groovy.util.logging.Slf4j
 
 @Slf4j
 class VcenterServerService {
 
 	private RubrikPlugin plugin
-	private RubrikVmwareApiService apiService
+	private RubrikVmwareApiRestService apiRestService
+	private RubrikVmwareApiGqlService apiGqlService
 
 	VcenterServerService() {
-		this.apiService = new RubrikVmwareApiService()
+		this.apiRestService = new RubrikVmwareApiRestService()
+		this.apiGqlService = new RubrikVmwareApiGqlService()
 	}
 
 	VcenterServerService(RubrikPlugin plugin) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiRestService = new RubrikVmwareApiRestService()
+		this.apiGqlService = new RubrikVmwareApiGqlService()
 	}
 
 	def executeRefresh(BackupProvider backupProviderModel, Map authConfig) {
 		log.debug("refreshVCenterServers: {}", backupProviderModel)
 		try {
-			ServiceResponse listResults = apiService.listVCenterServers(authConfig)
-			if(listResults.success) {
-				listResults.data?.vcenterServers.each { server ->
-					String serverId = server.id
-					apiService.refreshVcenterServer(authConfig, serverId)
+			if(backupProviderModel.platform == "rsc") {
+				ServiceResponse listResults = apiGqlService.listVCenterServers(authConfig)
+				if(listResults.success) {
+					listResults.data?.vcenterServers.each { server ->
+						String serverId = server.id
+						apiGqlService.refreshVcenterServer(authConfig, serverId)
+					}
+				}
+			} else {
+				ServiceResponse listResults = apiRestService.listVCenterServers(authConfig)
+				if (listResults.success) {
+					listResults.data?.vcenterServers.each { server ->
+						String serverId = server.id
+						apiRestService.refreshVcenterServer(authConfig, serverId)
+					}
 				}
 			}
 		} catch(e) {

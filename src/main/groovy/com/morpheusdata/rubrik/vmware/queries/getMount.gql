@@ -1,0 +1,27 @@
+query getMount ($fid: UUID!){
+    vSphereMount (fid: $fid) {
+        id
+        cdmId
+        isReady
+        status
+        cluster {
+            id
+            name
+        }
+        host {
+            id
+            name
+        }
+        sourceVm {
+            name
+            id
+        }
+        newVm {
+            name
+            id
+        }
+        sourceSnapshot {
+            id
+        }
+    }
+}

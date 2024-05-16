@@ -1,32 +1,24 @@
 package com.morpheusdata.rubrik.services
 
-import com.morpheusdata.core.util.RestApiUtil
+import com.morpheusdata.core.util.HttpApiClient
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
-import com.morpheusdata.response.WorkloadResponse
-import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
-import org.apache.http.client.methods.HttpGet
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.client.methods.HttpRequestBase
 import org.apache.http.client.utils.URIBuilder
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.util.EntityUtils
-import org.apache.tools.ant.types.spi.Service
 
 @Slf4j
-class ApiService {
+class ApiGqlService {
 
 	Map getAuthConfig(BackupProvider backupProviderModel) {
 		def rtn = [
 			apiUrl: backupProviderModel.serviceUrl,
 			apiVersion: 'v1',
 			token: backupProviderModel.credentialData?.password ?: backupProviderModel.serviceToken,
-			basePath: '/api/v1'
+			gqlPath: '/api/graphql',
+			basePath: '/api'
 		]
+		// username is client_id, password is client_secret
 		if(!backupProviderModel.serviceToken && backupProviderModel.username && backupProviderModel.password) {
 			rtn.username = backupProviderModel.username
 			rtn.password = backupProviderModel.password
@@ -48,9 +40,9 @@ class ApiService {
 			requestToken = false
 		}
 		if(requestToken == true) {
-			def apiPath = authConfig.basePath + '/session'
-			RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(ignoreSSL: true)
-			ServiceResponse results = RestApiUtil.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
+			def apiPath = authConfig.basePath + '/client_token'
+			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(ignoreSSL: true)
+			ServiceResponse results = HttpApiClient.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
 			rtn = results
 			rtn.success = results?.success && results?.error != true
 			if(rtn.success) {
@@ -65,55 +57,57 @@ class ApiService {
 
 	private ServiceResponse logout(Map authConfig) {
 		def rtn = ServiceResponse.prepare()
-		if(authConfig.sessionId) {
-			def apiPath = authConfig.basePath + '/session/' + authConfig.sessionId
-			def headers = buildHeaders([:], authConfig.token)
-			RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(headers:headers, ignoreSSL: true)
-			def results = RestApiUtil.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
+		if(authConfig.token) {
+			def apiPath = authConfig.basePath + '/session/'
+			def addHeaders = ["Content-Type": "application/json"]
+			Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
+			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers, ignoreSSL: true)
+			def results = HttpApiClient.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
 			rtn.success = results?.success && results?.error != true
 		}
 		return rtn
 	}
 
 	ServiceResponse listHosts(Map authConfig) {
-		return internalGetApiRequest(authConfig, '/host', 'hosts')
+		String query = new File('../queries/listHosts.gql').text.replaceAll("[\\r\\n]", "")
+		def payload = [
+				"query": query,
+				"operationName": "listHosts"
+		]
+		def headers = ["Content-Type": "application/json"]
+		return internalPostApiRequest(authConfig, 'hosts', payload, null, headers)
+
 	}
 
 	ServiceResponse listSlaDomains(Map authConfig) {
-		return internalGetApiRequest(authConfig, '/sla_domain', 'slaDomains')
+		String query = new File('../queries/listSlaDomains.gql').text.replaceAll("[\\r\\n]", "")
+		def payload = [
+				"query": query,
+				"operationName": "listSlaDomains"
+		]
+		def headers = ["Content-Type": "application/json"]
+		return internalPostApiRequest(authConfig, 'slaDomains', payload, null, headers)
 	}
 
 	//---- utility methods
-
-	private ServiceResponse internalGetApiRequest(Map authConfig, String path, String dataKey='data', Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, path, 'GET', dataKey, null, queryParams, headers)
+	private ServiceResponse internalGetApiRequest(Map authConfig, String dataKey='data', Map queryParams=null, Map headers=null) {
+		internalApiRequest(authConfig, 'GET', dataKey, null, queryParams, headers)
 	}
 
-	private ServiceResponse internalPostApiRequest(Map authConfig, String path, String dataKey='data', Map body=null, Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, path, 'POST', dataKey, body, queryParams, headers)
+	private ServiceResponse internalPostApiRequest(Map authConfig, String dataKey='data', Map body=null, Map queryParams=null, Map headers=null) {
+		internalApiRequest(authConfig, 'POST', dataKey, body, queryParams, headers)
 	}
 
-	private ServiceResponse internalPatchApiRequest(Map authConfig, String path, String dataKey='data', Map body=null, Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, path, 'PATCH', dataKey, body, queryParams, headers)
-	}
-
-	private ServiceResponse internalDeleteApiRequest(Map authConfig, String path, Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, path, 'DELETE', null, null, queryParams, headers)
-	}
-
-	private ServiceResponse internalApiRequest(Map authConfig, String path, String requestMethod='GET', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
+	private ServiceResponse internalApiRequest(Map authConfig, String requestMethod='POST', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)
 			log.debug("API Token results : ${tokenResults}")
 			if(tokenResults.success == true) {
-				log.debug("basePath: ${authConfig.basePath}, path: ${path}")
-				String tmpPath = (authConfig.basePath?.endsWith("/") ? authConfig.basePath : authConfig.basePath + "/") + (path.startsWith("/") ? path.substring(1) : path)
-				log.debug("tmpPath: ${tmpPath}")
-				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, tmpPath)
+				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, authConfig.gqlPath)
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}")
 				Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
-				RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(headers:headers)
+				HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers)
 				if(queryParams) {
 					requestOpts.queryParams = queryParams
 				}
@@ -124,7 +118,7 @@ class ApiService {
 				ServiceResponse results = ServiceResponse.success([hasMore: true])
 				rtn.data = [(dataKey):[], total:0]
 				while(results.success && results.data?.hasMore) {
-					results = RestApiUtil.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
+					results = HttpApiClient.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
 					log.debug("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false) {
 						if(results.data.data != null) {
@@ -151,6 +145,8 @@ class ApiService {
 		} catch(e) {
 			log.error("error during api request {}: {}", path, e, e)
 		}
+		println "\u001B[33mSL Log - internalapirequest rtn - ${rtn}\u001B[0m"
+
 		return rtn
 	}
 

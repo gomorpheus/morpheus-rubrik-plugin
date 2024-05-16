@@ -1,0 +1,19 @@
+query listVirtualMachines {
+    vSphereVmNewConnection {
+        count
+        nodes {
+            cdmId
+            id
+            name
+            cluster {
+                name
+                id
+            }
+            effectiveSlaDomain {
+                name
+                id
+            }
+            numWorkloadDescendants
+        }
+    }
+}

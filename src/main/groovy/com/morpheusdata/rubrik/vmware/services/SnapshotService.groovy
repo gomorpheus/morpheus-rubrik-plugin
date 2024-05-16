@@ -12,21 +12,24 @@ import com.morpheusdata.model.MorpheusModel
 import com.morpheusdata.model.projection.BackupResultIdentityProjection
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.RubrikPlugin
-import com.morpheusdata.rubrik.services.ApiService
+import com.morpheusdata.rubrik.services.ApiGqlService
+import com.morpheusdata.rubrik.services.ApiRestService
 import groovy.util.logging.Slf4j
 import io.reactivex.Observable
-import java.time.Instant
+
 import java.time.temporal.ChronoUnit
 
 @Slf4j
 class SnapshotService {
 
 	private RubrikPlugin plugin
-	private ApiService apiService
+	private ApiRestService apiRestService
+	private ApiGqlService apiGqlService
 
 	SnapshotService(RubrikPlugin plugin) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiRestService = new RubrikVmwareApiRestService()
+		this.apiGqlService = new RubrikVmwareApiGqlService()
 	}
 
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
@@ -45,8 +48,8 @@ class SnapshotService {
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
 				}.flatMap() {  Map<String, MorpheusModel> backupServerDto ->
-					ServiceResponse snapshotListResults = apiService.listSnapshotsForVirtualMachine(authConfig, backupServerDto.server.externalId)
-					log.debug("snapshotLIstResults: ${snapshotListResults}")
+					ServiceResponse snapshotListResults = backupProviderModel.platform == "rsc" ? apiGqlService.listSnapshotsForVirtualMachine(authConfig, backupServerDto.server.externalId) : apiRestService.listSnapshotsForVirtualMachine(authConfig, backupServerDto.server.externalId)
+				log.debug("snapshotLIstResults: ${snapshotListResults}")
 					List<Map> snapshotList = []
 					if(snapshotListResults.success) {
 						snapshotList = snapshotListResults.data.snapshots
