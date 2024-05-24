@@ -3,13 +3,14 @@ package com.morpheusdata.rubrik.services
 import com.morpheusdata.core.util.HttpApiClient
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
+import com.morpheusdata.rubrik.queries.GqlQueryConstants
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 import org.apache.http.client.utils.URIBuilder
 
 @Slf4j
-class ApiGqlService {
-
+class GqlApiService implements PlatformApiServiceInterface {
+	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
 		def rtn = [
 			apiUrl: backupProviderModel.serviceUrl,
@@ -27,7 +28,8 @@ class ApiGqlService {
 		return rtn
 	}
 
-	private ServiceResponse getToken(Map authConfig) {
+	@Override
+	ServiceResponse getToken(Map authConfig) {
 		def rtn = ServiceResponse.prepare()
 		def requestToken = true
 		if(authConfig.token) {
@@ -55,10 +57,11 @@ class ApiGqlService {
 		return rtn
 	}
 
-	private ServiceResponse logout(Map authConfig) {
+	@Override
+	ServiceResponse logout(Map authConfig) {
 		def rtn = ServiceResponse.prepare()
 		if(authConfig.token) {
-			def apiPath = authConfig.basePath + '/session/'
+			def apiPath = authConfig.basePath + '/session'
 			def addHeaders = ["Content-Type": "application/json"]
 			Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
 			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers, ignoreSSL: true)
@@ -68,37 +71,35 @@ class ApiGqlService {
 		return rtn
 	}
 
+	@Override
 	ServiceResponse listHosts(Map authConfig) {
-		String query = new File('../queries/listHosts.gql').text.replaceAll("[\\r\\n]", "")
+		String query = GqlQueryConstants.listHosts.replaceAll("[\\r\\n]", "")
 		def payload = [
 				"query": query,
-				"operationName": "listHosts"
+				"operationName": "listHosts",
+				"variables": [
+				        "hostRoot": "WINDOWS_HOST_ROOT"
+				]
 		]
 		def headers = ["Content-Type": "application/json"]
-		return internalPostApiRequest(authConfig, 'hosts', payload, null, headers)
+		return internalPostApiRequest(authConfig, null, 'hosts', payload, null, headers)
 
 	}
 
+	@Override
 	ServiceResponse listSlaDomains(Map authConfig) {
-		String query = new File('../queries/listSlaDomains.gql').text.replaceAll("[\\r\\n]", "")
+		String query = GqlQueryConstants.listSlaDomains.replaceAll("[\\r\\n]", "")
 		def payload = [
 				"query": query,
 				"operationName": "listSlaDomains"
 		]
 		def headers = ["Content-Type": "application/json"]
-		return internalPostApiRequest(authConfig, 'slaDomains', payload, null, headers)
+		return internalPostApiRequest(authConfig, null, 'slaDomains', payload, null, headers)
 	}
 
 	//---- utility methods
-	private ServiceResponse internalGetApiRequest(Map authConfig, String dataKey='data', Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, 'GET', dataKey, null, queryParams, headers)
-	}
-
-	private ServiceResponse internalPostApiRequest(Map authConfig, String dataKey='data', Map body=null, Map queryParams=null, Map headers=null) {
-		internalApiRequest(authConfig, 'POST', dataKey, body, queryParams, headers)
-	}
-
-	private ServiceResponse internalApiRequest(Map authConfig, String requestMethod='POST', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
+	@Override
+	ServiceResponse internalApiRequest(Map authConfig, String path, String requestMethod='POST', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)
@@ -146,60 +147,6 @@ class ApiGqlService {
 			log.error("error during api request {}: {}", path, e, e)
 		}
 		println "\u001B[33mSL Log - internalapirequest rtn - ${rtn}\u001B[0m"
-
-		return rtn
-	}
-
-	private Map<String,String> buildHeaders(Map<String,String> headers, String token) {
-		headers = headers ?: [:]
-		headers["Accept"] = "application/json"
-		if(token) {
-			headers["Authorization"] = "Bearer ${token}".toString()
-		}
-		return headers
-	}
-
-	private String extractUuid(String url) {
-		def rtn = url
-		def lastSlash = rtn?.lastIndexOf('/')
-		if(lastSlash > -1)
-			rtn = rtn.substring(lastSlash + 1)
-		def queryMarker = rtn?.lastIndexOf('?')
-		if(queryMarker > -1)
-			rtn = rtn.substring(0, queryMarker)
-
-		return rtn
-	}
-
-	private String extractVirtualDiskDatastore(String name) {
-		def rtn
-		def lastBracket = name.indexOf("]")
-		if(lastBracket > -1) {
-			rtn = name.substring(1, lastBracket)
-		}
-
-		return rtn
-	}
-
-	private String parseApiLink(String link) {
-		if(!link.startsWith("http")) {
-			link = "http://" + link
-		}
-		def uri = new URIBuilder(link)
-		def rtn = [path: uri.path, query: [:]]
-		uri.queryParams.each {
-			rtn.query[it.name] = it.value
-		}
-
-		return rtn
-	}
-
-	private ArrayList<String> buildApiParts(String apiUrl, String apiPath) {
-		ArrayList<String> rtn = []
-		URIBuilder apiUriBuilder = new URIBuilder(apiUrl)
-		rtn << apiUriBuilder.toString()
-		apiUriBuilder.setPath(apiPath)
-		rtn << apiUriBuilder.getPath()
 
 		return rtn
 	}

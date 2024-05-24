@@ -11,10 +11,10 @@ import com.morpheusdata.model.BackupProviderType
 import com.morpheusdata.model.Icon
 import com.morpheusdata.model.OptionType
 import com.morpheusdata.response.ServiceResponse
-import com.morpheusdata.rubrik.services.ApiGqlService
-import com.morpheusdata.rubrik.services.ApiRestService
+import com.morpheusdata.rubrik.services.ApiService
 import com.morpheusdata.rubrik.services.SlaDomainService
 import com.morpheusdata.rubrik.vmware.RubrikVmwareBackupProvider
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiService
 import groovy.util.logging.Slf4j
 import groovy.json.JsonOutput
 import com.morpheusdata.core.util.ConnectionUtils
@@ -28,9 +28,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	static String LOCK_NAME = 'backups.rubrik'
 
-	ApiRestService apiRestService
-
-	ApiGqlService apiGqlService
+	RubrikVmwareApiService apiService
 
 	SlaDomainService SlaDomainService
 
@@ -38,8 +36,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	RubrikBackupProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		super(plugin, morpheusContext)
-		apiRestService = new ApiRestService()
-		apiGqlService = new ApiGqlService()
+		apiService = new RubrikVmwareApiService()
 
 		// vmware
 		RubrikVmwareBackupProvider vmwareBackupProvider = new RubrikVmwareBackupProvider(plugin, morpheus)
@@ -106,7 +103,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		Collection<OptionType> optionTypes = new ArrayList();
 		optionTypes << new OptionType(
 			code:"backupProviderType.${this.getCode()}.platform", inputType:OptionType.InputType.SELECT, name:'platform', category:"backupProviderType.${this.getCode()}",
-			fieldName:'platform', fieldCode: 'gomorpheus.optiontype.platform', fieldLabel:'Platform', fieldContext:'platform', fieldGroup:'default',
+			fieldName:'platform', fieldCode: 'gomorpheus.help.rubrik.platform', fieldLabel:'Platform', fieldContext:'config', fieldGroup:'default',
 			required:true, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
 			displayOrder:5, fieldClass:null, config: JsonOutput.toJson([platforms:['CDM', 'RSC']]).toString()
 		)
@@ -275,7 +272,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		ServiceResponse rtn = ServiceResponse.prepare()
 		log.debug("refresh backup provider: [{}:{}]", backupProviderModel.name, backupProviderModel.id)
 		try {
-			def authConfig = backupProviderModel.platform == "rsc" ? apiGqlService.getAuthConfig(backupProviderModel) : apiRestService.getAuthConfig(backupProviderModel)
+			def authConfig = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).getAuthConfig(backupProviderModel)
 			def apiOpts = [authConfig:authConfig]
 			def apiUrl = authConfig.apiUrl
 			def apiUri = new URI(apiUrl)
@@ -315,9 +312,9 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	private verifyAuthentication(BackupProviderModel backupProviderModel, Map opts) {
 		def rtn = [success:false, invalidLogin:false, found:true]
-		def authConfig = backupProviderModel.platform == "rsc" ? apiGqlService.getAuthConfig(backupProviderModel) : apiRestService.getAuthConfig(backupProviderModel)
+		def authConfig = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).getAuthConfig(backupProviderModel)
 		opts.authConfig = opts.authConfig ?: authConfig
-		def requestResults = backupProviderModel.platform == "rsc" ? apiGqlService.listHosts(opts.authConfig) : apiRestService.listHosts(opts.authConfig)
+		def requestResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listHosts(opts.authConfig)
 		if(requestResults.success == true) {
 			rtn.success = true
 		} else {

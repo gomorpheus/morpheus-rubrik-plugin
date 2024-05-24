@@ -1,13 +1,12 @@
 package com.morpheusdata.rubrik.vmware.services
 
-import com.morpheusdata.core.util.HttpApiClient
+
 import com.morpheusdata.response.ServiceResponse
-import com.morpheusdata.rubrik.services.ApiRestService
-import groovy.json.JsonSlurper
+import com.morpheusdata.rubrik.services.RestApiService
 import groovy.util.logging.Slf4j
 
 @Slf4j
-class RubrikVmwareApiRestService extends ApiRestService {
+class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwarePlatformApiServiceInterface {
 
 	ServiceResponse listVirtualMachines(Map authConfig) {
 		return internalGetApiRequest(authConfig, '/vmware/vm', 'virtualMachines')
@@ -69,41 +68,6 @@ class RubrikVmwareApiRestService extends ApiRestService {
 		]
 		log.debug("restoreSnapshotToNewVirtualMachine, snapshotId: {}, body: {}", snapshotId, body)
 		return internalPostApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId + '/export', 'restoreRequest', body)
-	}
-
-	ServiceResponse getRestoredVirtualMachine(Map authConfig, String resourceId) {
-		ServiceResponse rtn = ServiceResponse.prepare()
-		try {
-			def vmId
-			if(resourceId.startsWith("VirtualMachine:::")) {
-				vmId = resourceId
-			} else {
-				def mountDetailResults = getMount(authConfig, resourceId)
-				if(mountDetailResults.success == false) {
-					rtn = [success: false, msg: "Mount not found", retry: true]
-				}
-				if(mountDetailResults.success) {
-					vmId = mountDetailResults.data.mountedVmId
-				}
-			}
-			if(vmId) {
-				def vmDetailRequest = getVirtualMachine(authConfig, vmId)
-				if(vmDetailRequest.success) {
-					rtn.data = vmDetailRequest.data
-					rtn.success = true
-				} else {
-					rtn.success = false
-					rtn.data = rtn.data ?: [:]
-					rtn.data.retry = true
-					rtn.msg = "Could not find restored vm reference"
-					log.error("Could not find restored vm reference")
-				}
-			}
-		} catch (Exception e) {
-			log.error("error fetching restored vm: ${e}", e)
-		}
-
-		return rtn
 	}
 
 	ServiceResponse getMount(Map authConfig, String mountId) {
@@ -244,18 +208,6 @@ class RubrikVmwareApiRestService extends ApiRestService {
 			}
 		}
 
-		return rtn
-	}
-
-	def getApiError(Map apiResponse) {
-		def rtn = null
-		def errorMessage = [:]
-		if(apiResponse?.error?.message) {
-			errorMessage = new groovy.json.JsonSlurper().parseText(apiResponse.error.message)
-		}
-		if(errorMessage) {
-			rtn = errorMessage?.cause?.reason ?: errorMessage?.message
-		}
 		return rtn
 	}
 }

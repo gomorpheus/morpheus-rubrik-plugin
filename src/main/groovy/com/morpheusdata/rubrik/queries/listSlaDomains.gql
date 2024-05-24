@@ -1,9 +1,0 @@
-query listSlaDomains {
-  slaDomains {
-    count
-    nodes {
-      id
-      name
-    }
-  }
-}

@@ -8,9 +8,8 @@ import com.morpheusdata.core.backup.BackupRestoreProvider
 import com.morpheusdata.model.BackupProvider as BackupProviderModel
 import com.morpheusdata.model.OptionType
 import com.morpheusdata.response.ServiceResponse
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiService
 import com.morpheusdata.rubrik.vmware.services.SnapshotService
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiRestService
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiGqlService
 import com.morpheusdata.rubrik.vmware.services.VcenterServerService
 import groovy.util.logging.Slf4j
 
@@ -20,8 +19,7 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
-	RubrikVmwareApiRestService apiRestService
-	RubrikVmwareApiGqlService apiGqlService
+	RubrikVmwareApiService apiService
 
 	SnapshotService slaSnapshotService
 
@@ -32,8 +30,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
 	RubrikVmwareBackupProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		super(plugin, morpheusContext)
-		apiRestService = new RubrikVmwareApiRestService()
-		apiGqlService = new RubrikVmwareApiGqlService()
+		apiService = new RubrikVmwareApiService()
 	}
 
 	@Override

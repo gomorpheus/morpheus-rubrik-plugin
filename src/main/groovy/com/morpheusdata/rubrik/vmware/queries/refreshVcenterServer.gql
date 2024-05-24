@@ -1,8 +1,0 @@
-mutation refreshVcenterServer ($fid: UUID!) {
-    refreshVsphereVcenter (input: {
-        fid: $fid
-    }) {
-        id
-        status
-    }
-}

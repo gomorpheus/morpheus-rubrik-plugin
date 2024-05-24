@@ -1,26 +1,26 @@
 package com.morpheusdata.rubrik.vmware.services
 
-import com.morpheusdata.core.util.HttpApiClient
+
 import com.morpheusdata.response.ServiceResponse
-import com.morpheusdata.rubrik.services.ApiGqlService
-import groovy.json.JsonSlurper
+import com.morpheusdata.rubrik.services.GqlApiService
+import com.morpheusdata.rubrik.vmware.queries.RubrikVmwareGqlQueryConstants
 import groovy.util.logging.Slf4j
 
 @Slf4j
-class RubrikVmwareApiGqlService extends ApiGqlService {
+class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePlatformApiServiceInterface {
 
     ServiceResponse listVirtualMachines(Map authConfig) {
-        String query = new File('../queries/listVirtualMachines.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.listVirtualMachines.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "listVirtualMachines"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'virtualMachines', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'virtualMachines', payload,null, headers)
     }
 
     ServiceResponse getVirtualMachine(Map authConfig, String vmId) {
-        String query = new File('../queries/getVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getVirtualMachine",
@@ -29,17 +29,17 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'virtualMachine', payload, null, headers)
+        return internalPostApiRequest(authConfig, null, 'virtualMachine', payload, null, headers)
     }
 
     ServiceResponse getVirtualMachineId(Map authConfig, String vmExternalId) {
-        String query = new File('../queries/listVirtualMachines.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.listVirtualMachines.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getVirtualMachineId"
         ]
         def headers = ["Content-Type": "application/json"]
-        def response = internalPostApiRequest(authConfig, 'virtualMachine', payload,null, headers)
+        def response = internalPostApiRequest(authConfig, null, 'virtualMachine', payload,null, headers)
 
         def vms = response.data['virtualMachine'].data.vSphereVmNewConnection.nodes
         def match = vms.findAll { "vm-" + it.cdmId.split("-vm-")[1] == vmExternalId}
@@ -61,7 +61,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 log.debug("vmId: ${vmId}")
                 log.debug("vmOpts: ${vmOpts}")
 
-                String query = new File('../queries/updateVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+                String query = RubrikVmwareGqlQueryConstants.updateVirtualMachine.replaceAll("[\\r\\n]", "")
                 def payload = [
                         "query": query,
                         "operationName": "updateVirtualMachine",
@@ -72,7 +72,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 ]
 
                 def headers = ["Content-Type": "application/json"]
-                rtn = internalPostApiRequest(authConfig, 'virtualMachine', payload,null, headers)
+                rtn = internalPostApiRequest(authConfig, null, 'virtualMachine', payload,null, headers)
             } else {
                 rtn.msg = "VM not found in Rubrik."
             }
@@ -83,7 +83,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
     }
 
     ServiceResponse backupVirtualMachine(Map authConfig, String vmExternalId, Map opts = [:]) {
-        String query = new File('../queries/backupVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.backupVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "backupVirtualMachine",
@@ -94,11 +94,11 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'backupRequest', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'backupRequest', payload,null, headers)
     }
 
     ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
-        String query = new File('../queries/restoreSnapshotToVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.restoreSnapshotToVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "restoreSnapshotToVirtualMachine",
@@ -114,11 +114,11 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'restoreRequest', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'restoreRequest', payload,null, headers)
     }
 
     ServiceResponse restoreSnapshotToNewVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
-        String query = new File('../queries/restoreSnapshotToNewVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.restoreSnapshotToNewVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "restoreSnapshotToNewVirtualMachine",
@@ -134,46 +134,11 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'restoreRequest', payload,null, headers)
-    }
-
-    ServiceResponse getRestoredVirtualMachine(Map authConfig, String resourceId) {
-        ServiceResponse rtn = ServiceResponse.prepare()
-        try {
-            def vmId
-            if(resourceId.startsWith("VirtualMachine:::")) {
-                vmId = resourceId
-            } else {
-                def mountDetailResults = getMount(authConfig, resourceId)
-                if(mountDetailResults.success == false) {
-                    rtn = [success: false, msg: "Mount not found", retry: true]
-                }
-                if(mountDetailResults.success) {
-                    vmId = mountDetailResults.data.mountedVmId
-                }
-            }
-            if(vmId) {
-                def vmDetailRequest = getVirtualMachine(authConfig, vmId)
-                if(vmDetailRequest.success) {
-                    rtn.data = vmDetailRequest.data
-                    rtn.success = true
-                } else {
-                    rtn.success = false
-                    rtn.data = rtn.data ?: [:]
-                    rtn.data.retry = true
-                    rtn.msg = "Could not find restored vm reference"
-                    log.error("Could not find restored vm reference")
-                }
-            }
-        } catch (Exception e) {
-            log.error("error fetching restored vm: ${e}", e)
-        }
-
-        return rtn
+        return internalPostApiRequest(authConfig, null, 'restoreRequest', payload,null, headers)
     }
 
     ServiceResponse getMount(Map authConfig, String mountId) {
-        String query = new File('../queries/getMount.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getMount.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getMount",
@@ -183,22 +148,22 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'mount', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'mount', payload,null, headers)
     }
 
     @Override
     ServiceResponse listHosts(Map authConfig) {
-        String query = new File('../queries/listHosts.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.listHosts.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "listHosts"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'hosts', payload, null, headers)
+        return internalPostApiRequest(authConfig, null, 'hosts', payload, null, headers)
     }
 
     ServiceResponse getHost(Map authConfig, String hostId) {
-        String query = new File('../queries/getHost.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getHost.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getHost",
@@ -207,10 +172,11 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'host', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'host', payload,null, headers)
     }
 
     ServiceResponse getVirtualDisk(Map authConfig, String diskId) {
+        // no equivalent function for gql
         return internalGetApiRequest(authConfig, '/vmware/vm/virtual_disk/' + diskId, 'virtualDisk')
     }
 
@@ -224,7 +190,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
             if(vmIdResults.success && vmData?.id) {
                 String vmId = vmData.id
 
-                String query = new File('../queries/listSnapshotsForVirtualMachine.gql').text.replaceAll("[\\r\\n]", "")
+                String query = RubrikVmwareGqlQueryConstants.listSnapshotsForVirtualMachine.replaceAll("[\\r\\n]", "")
                 def payload = [
                         "query": query,
                         "operationName": "listSnapshotsForVirtualMachine",
@@ -233,7 +199,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                         ]
                 ]
                 def headers = ["Content-Type": "application/json"]
-                rtn = internalPostApiRequest(authConfig, 'snapshots', payload,null, headers)
+                rtn = internalPostApiRequest(authConfig, null, 'snapshots', payload,null, headers)
 
             } else {
                 rtn.msg = "VM not found in Rubrik."
@@ -245,19 +211,19 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
     }
 
     // was `getRequest`
-    ServiceResponse getVmTaskRequest(Map authConfig, String requestId, String clusterUuid) {
-        String query = new File('../queries/getVmTaskRequest.gql').text.replaceAll("[\\r\\n]", "")
+    ServiceResponse getVmTaskRequest(Map authConfig, String requestId) {
+        String query = RubrikVmwareGqlQueryConstants.getVmTaskRequest.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getVmTaskRequest",
-                "variables": [ "clusterUuid": clusterUuid, "requestId": requestId ]
+                "variables": [ "clusterUuid": "", "requestId": requestId ] // need to get cluster uuid
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'request', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'request', payload,null, headers)
     }
 
     ServiceResponse getSnapshot(authConfig, snapshotId) {
-        String query = new File('../queries/getSnapshot.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getSnapshot.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "getSnapshot",
@@ -266,32 +232,32 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'snapshot', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'snapshot', payload,null, headers)
     }
 
     ServiceResponse deleteSnapshot(authConfig, snapshotId) {
-        String query = new File('../queries/deleteSnapshot.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.deleteSnapshot.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "deleteSnapshot",
                 "variables": [ "snapshotIds": [ snapshotId ]]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'snapshot', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'snapshot', payload,null, headers)
     }
 
     ServiceResponse listVCenterServers(Map authConfig) {
-        String query = new File('../queries/listVCenterServers.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.listVCenterServers.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "listVCenterServers"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'vcenterServers', payload, null, headers)
+        return internalPostApiRequest(authConfig, null, 'vcenterServers', payload, null, headers)
     }
 
     ServiceResponse refreshVcenterServer(Map authConfig, String serverId) {
-        String query = new File('../queries/refreshVcenterServer.gql').text.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.refreshVcenterServer.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
                 "operationName": "refreshVcenterServer",
@@ -300,7 +266,7 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'request', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'request', payload,null, headers)
     }
 
     ServiceResponse waitForVirtualMachine(Map authConfig, String vmExternalId, backupProvider) {
@@ -383,18 +349,6 @@ class RubrikVmwareApiGqlService extends ApiGqlService {
             }
         }
 
-        return rtn
-    }
-
-    def getApiError(Map apiResponse) {
-        def rtn = null
-        def errorMessage = [:]
-        if(apiResponse?.error?.message) {
-            errorMessage = new groovy.json.JsonSlurper().parseText(apiResponse.error.message)
-        }
-        if(errorMessage) {
-            rtn = errorMessage?.cause?.reason ?: errorMessage?.message
-        }
         return rtn
     }
 }

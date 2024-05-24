@@ -14,8 +14,9 @@ import com.morpheusdata.model.BackupRestore;
 import com.morpheusdata.model.BackupResult;
 import com.morpheusdata.model.Backup;
 import com.morpheusdata.model.Instance
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiRestService
-import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiGqlService
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareApiService
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareRestApiService
+import com.morpheusdata.rubrik.vmware.services.RubrikVmwareGqlApiService
 import com.morpheusdata.rubrik.util.RubrikBackupStatusUtility
 import groovy.util.logging.Slf4j
 
@@ -25,13 +26,12 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 	static String LOCK_NAME = "backups.rubrik.restore";
 
 	Plugin plugin
-	RubrikVmwareApiRestService apiRestService
-	RubrikVmwareApiGqlService apiGqlService
+
+	RubrikVmwareApiService apiService
 
 	RubrikVmwareBackupRestoreProvider(Plugin plugin) {
 		this.plugin = plugin
-		this.apiRestService = new RubrikVmwareApiRestService()
-		this.apiGqlService = new RubrikVmwareApiGqlService()
+		this.apiService = new RubrikVmwareApiService()
 	}
 
 	@Override
@@ -91,7 +91,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 		log.info("Restoring backupResult {} - opts: {}", backupResult, opts)
 		try {
 			BackupProvider backupProvider = backup.backupProvider
-			def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
+			def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 			log.debug("authConfig: ${authConfig}")
 			log.debug("backup restore to new: ${backupRestore.restoreToNew}")
 			if(backupRestore.restoreToNew) {
@@ -106,13 +106,13 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 
 				if(sourceServer && sourceDatastore) {
 					log.debug("Source server ext ID: ${sourceServer.externalId}")
-					ServiceResponse vmIdResults = backupProvider.platform == "rsc" ? apiGqlService.waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider) : apiRestService.waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
+					ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
 					log.debug("vmIdResults: ${vmIdResults}")
 					if(vmIdResults.success && vmIdResults.data.virtualMachine.id) {
-						def vmDetailResult = backupProvider.platform == "rsc" ? apiGqlService.getVirtualMachine(authConfig, vmIdResults.data.virtualMachine.id) : apiRestService.getVirtualMachine(authConfig, vmIdResults.data.virtualMachine.id)
+						def vmDetailResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVirtualMachine(authConfig, vmIdResults.data.virtualMachine.id)
 						if(vmDetailResult.success) {
 							def hostId = vmDetailResult.data.virtualMachine.hostId
-							def vmHost = backupProvider.platform == "rsc" ? apiGqlService.getHost(authConfig, hostId) : apiRestService.getHost(authConfig, hostId)
+							def vmHost = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getHost(authConfig, hostId)
 							if(vmHost.success) {
 								log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId}")
 								def datastore = vmHost.data.host.datastores.find {
@@ -125,10 +125,10 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 										hostId     : hostId,
 										vmName     : targetWorkload.server?.name ?: targetWorkload.internalName
 									]
-									ServiceResponse restoreResults = backupProvider.platform == "rsc" ? apiGqlService.restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id, restoreOpts) : apiRestService.restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id, restoreOpts)
+									ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id, restoreOpts)
 									log.debug("restoreResults: ${restoreResults}")
 									if(restoreResults.success) {
-										ServiceResponse restoreTaskResults = backupProvider.platform == "rsc" ? apiGqlService.waitForRestoredVirtualMachine(authConfig, restoreResults.data.restoreRequest.id) : apiRestService.waitForRestoredVirtualMachine(authConfig, restoreResults.data.restoreRequest.id)
+										ServiceResponse restoreTaskResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForRestoredVirtualMachine(authConfig, restoreResults.data.restoreRequest.id)
 										log.debug("wait for restore vm restults: ${restoreTaskResults}")
 										if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.id) {
 											rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.id]
@@ -179,8 +179,8 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			} else {
 				log.debug("Restoring to existing VM with snapshot ID: ${backupResult.externalId}")
 				// restore to the current virtual machine
-				ServiceResponse vmIdResults = backupProvider.platform == "rsc" ? apiGqlService.waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider) : apiRestService.waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
-				ServiceResponse restoreResults = backupProvider.platform == "rsc" ? apiGqlService.restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id) : apiRestService.restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id)
+				ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
+				ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id)
 				if(restoreResults.success) {
 					rtn.success = true
 					rtn.data.updates = true
@@ -209,11 +209,11 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			log.debug("Restore status: status:${backupRestore.status}, errorMessage: ${backupRestore.errorMessage}")
 			Backup backup = backupResult.backup
 			BackupProvider backupProvider = backup.backupProvider
-			def authConfig = backupProvider.platform == "rsc" ? apiGqlService.getAuthConfig(backupProvider) : apiRestService.getAuthConfig(backupProvider)
+			def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 			String restoreRequestId = backupRestore.externalStatusRef
 			log.debug("restore request id: {}", restoreRequestId)
 			if(restoreRequestId) {
-				ServiceResponse restoreRequestResult = backupProvider.platform == "rsc" ? apiGqlService.getVmTaskRequest(authConfig, restoreRequestId) : apiRestService.getVmTaskRequest(authConfig, restoreRequestId)
+				ServiceResponse restoreRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, restoreRequestId)
 				log.debug("restoreRequestResult: {}", restoreRequestResult)
 				Map restoreRequest = restoreRequestResult.data.request
 
@@ -225,9 +225,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					if(restoreRequest.status == "SUCCEEDED") {
 						def resultLink = restoreRequest.links.find { it.rel == "result" }
 						if(resultLink) {
-							def restoreResultId =  backupProvider.platform == "rsc" ? apiGqlService.extractUuid(resultLink.href) : apiRestService.extractUuid(resultLink.href)
+							def restoreResultId = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).extractUuid(resultLink.href)
 
-							def vmDetailResults =  backupProvider.platform == "rsc" ? apiGqlService.getRestoredVirtualMachine(authConfig, restoreResultId) : apiRestService.getRestoredVirtualMachine(authConfig, restoreResultId)
+							def vmDetailResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getRestoredVirtualMachine(authConfig, restoreResultId)
 							if(vmDetailResults.success && !vmDetailResults.data.retry) {
 								rtn.data.backupRestore.externalId = vmDetailResults.data.moid // might need to get the VM info from the restore result links
 							} else if(vmDetailResults.success && vmDetailResults.retry) {

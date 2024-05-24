@@ -12,20 +12,18 @@ import io.reactivex.Observable
 class SlaDomainService {
 
 	private RubrikPlugin plugin
-	private ApiRestService apiRestService
-	private ApiGqlService apiGqlService
+	private ApiService apiService
 
 	SlaDomainService(RubrikPlugin plugin) {
 		this.plugin = plugin
-		this.apiRestService = new ApiRestService()
-		this.apiGqlService = new ApiGqlService()
+		this.apiService = new ApiService()
 	}
 
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
 		log.debug("executeCache: ${backupProviderModel.id}")
 		try {
 			def objectCategory = getObjectCategory(backupProviderModel)
-			def slaDomainResults = backupProviderModel.platform == "rsc" ? apiGqlService.listSlaDomains(authConfig) : apiRestService.listSlaDomains(authConfig)
+			def slaDomainResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSlaDomains(authConfig)
 			if(slaDomainResults.success && slaDomainResults.data?.size() > 0) {
 				List<Map> slaDomainList = slaDomainResults.data.slaDomains
 				Observable<ReferenceDataSyncProjection> referenceDataIdentityProjections = plugin.morpheus.referenceData.listByAccountIdAndCategory(backupProviderModel.account.id, objectCategory)
