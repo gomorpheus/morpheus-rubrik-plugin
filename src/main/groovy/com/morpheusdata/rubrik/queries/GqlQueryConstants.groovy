@@ -4,8 +4,8 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class GqlQueryConstants {
     static final listHosts = """
-		query listHosts ($hostRoot:HostRoot!) {
-			physicalHosts (hostRoot:$hostRoot) {
+		query listHosts (\$hostRoot:HostRoot!) {
+			physicalHosts (hostRoot:\$hostRoot) {
 				nodes {
 					id
 					name

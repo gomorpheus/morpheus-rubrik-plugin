@@ -15,11 +15,11 @@ class GqlApiService implements PlatformApiServiceInterface {
 		def rtn = [
 			apiUrl: backupProviderModel.serviceUrl,
 			apiVersion: 'v1',
-			token: backupProviderModel.credentialData?.password ?: backupProviderModel.serviceToken,
+			token: backupProviderModel.serviceToken,
 			gqlPath: '/api/graphql',
 			basePath: '/api'
 		]
-		// username is client_id, password is client_secret
+		// username is client_id, password is client_secret, service token is access token
 		if(!backupProviderModel.serviceToken && backupProviderModel.username && backupProviderModel.password) {
 			rtn.username = backupProviderModel.username
 			rtn.password = backupProviderModel.password

@@ -101,13 +101,16 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	@Override
 	Collection<OptionType> getOptionTypes() {
 		Collection<OptionType> optionTypes = new ArrayList();
-		optionTypes << new OptionType(
-			code:"backupProviderType.${this.getCode()}.platform", inputType:OptionType.InputType.SELECT, name:'platform', category:"backupProviderType.${this.getCode()}",
-			fieldName:'platform', fieldCode: 'gomorpheus.help.rubrik.platform', fieldLabel:'Platform', fieldContext:'config', fieldGroup:'default',
-			required:true, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
-			displayOrder:5, fieldClass:null, config: JsonOutput.toJson([platforms:['CDM', 'RSC']]).toString()
-		)
 
+		def PLATFORM_RSC = '^RSC$'
+		def PLATFORM_CDM = '^$'
+
+		optionTypes << new OptionType(
+			code:"backupProviderType.${this.getCode()}.platformType", inputType:OptionType.InputType.SELECT, name:'platformType', category:"backupProviderType.${this.getCode()}",
+			fieldName:'platformType', fieldCode: 'gomorpheus.help.rubrik.platformType', fieldLabel:'Platform', fieldContext:'config', fieldGroup:'default', optionSource:'rubrikPlatformTypes',
+			required:true, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			displayOrder:5, fieldClass:null
+		)
 		optionTypes << new OptionType(
 			code:"backupProviderType.${this.getCode()}.host", inputType:OptionType.InputType.TEXT, name:'host', category:"backupProviderType.${this.getCode()}",
 			fieldName:'host', fieldCode: 'gomorpheus.optiontype.Host', fieldLabel:'Host', fieldContext:'domain', fieldGroup:'default',
@@ -123,8 +126,20 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		optionTypes << new OptionType(
 			code:"backupProviderType.${this.getCode()}.serviceToken", inputType:OptionType.InputType.PASSWORD, name:'password', category:"backupProviderType.${this.getCode()}",
 			fieldName:'serviceToken', fieldCode: 'gomorpheus.optiontype.ApiToken', fieldLabel:'API Token', fieldContext:'domain', fieldGroup:'default',
-			required:false, enabled:true, requireOnCode:'credential.type:local', editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			required:false, enabled:true, requireOnCode:'credential.type:local', visibleOnCode: "config.platformType:${PLATFORM_CDM}", editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
 			displayOrder:30, fieldClass:null, localCredential:true
+		)
+		optionTypes << new OptionType(
+			code:"backupProviderType.${this.getCode()}.username", inputType:OptionType.InputType.TEXT, name:'username', category:"backupProviderType.${this.getCode()}",
+			fieldName:'username', fieldCode: 'gomorpheus.optiontype.clientId', fieldLabel:'Client ID', fieldContext:'config', fieldGroup:'default',
+			required:false, enabled:true, requireOnCode: "config.platformType:${PLATFORM_RSC}", visibleOnCode: "config.platformType:${PLATFORM_RSC}", editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			displayOrder:40, fieldClass:null
+		)
+		optionTypes << new OptionType(
+			code:"backupProviderType.${this.getCode()}.password", inputType:OptionType.InputType.TEXT, name:'password', category:"backupProviderType.${this.getCode()}",
+			fieldName:'password', fieldCode: 'gomorpheus.optiontype.clientSecret', fieldLabel:'Client Secret', fieldContext:'config', fieldGroup:'default',
+			required:false, enabled:true, requireOnCode: "config.platformType:${PLATFORM_RSC}", visibleOnCode: "config.platformType:${PLATFORM_RSC}", editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			displayOrder:45, fieldClass:null
 		)
 
 		return optionTypes

@@ -42,7 +42,7 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 
 	@Override
 	List<String> getMethodNames() {
-		return new ArrayList<String>(['rubrikSlaDomains'])
+		return new ArrayList<String>(['rubrikSlaDomains', 'rubrikPlatformTypes'])
 	}
 
 	def rubrikSlaDomains(args) {
@@ -78,4 +78,8 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 		return rtn
 	}
 
+	def rubrikPlatformTypes(params) {
+		def rtn = [[name:'CDM', value: ''], [name: 'RSC', value: 'RSC']]
+		return rtn
+	}
 }
