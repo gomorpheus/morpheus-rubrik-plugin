@@ -63,13 +63,16 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				}
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
-					ServiceResponse vmIdResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, morphServer.externalId, backupProvider)
+					ServiceResponse vmIdResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, morphServer.externalId, morphServer.parentServer.externalId, backupProvider)
 					log.debug("vmIdResult: ${vmIdResult}")
 					if(vmIdResult.success && vmIdResult.data.virtualMachine?.id) {
+						backup.addConfigProperty("clusterId", vmIdResult.data.vSphereVmNewConnection.nodes.cluster.id)
+						backup.addConfigProperty("rubrikFid", vmIdResult.data.vSphereVmNewConnection.nodes.id)
 						def slaDomain = plugin.morpheus.referenceData.get(slaDomainId.toLong()).blockingGet()
 						// if we find the id, update the vm with the sla domain
 						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomain?.externalId}")
-						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: slaDomain?.externalId])
+						String vmId = backup.getConfigProperty("rubrikFid")
+						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, vmId, [configuredSlaDomainId: slaDomain?.externalId])
 					} else {
 						rtn.success = false
 						rtn.msg = "Unable to find vcenter virtual machine in Rubrik."
@@ -106,7 +109,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 						}
 					}
 					if(morphServer) {
-						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, morphServer.externalId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
+						String vmId = backup.getConfigProperty("rubrikFid")
+						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, vmId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
 						log.debug("deleteBackup API results: {}", rtn)
 						if(!rtn.success && rtn.msg.contains("not found")) {
 							rtn.success = true
@@ -185,40 +189,35 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 
 			if(computeServer) {
-				ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, computeServer.externalId, backupProvider)
-				if(vmIdResults.success && vmIdResults.data.virtualMachine?.id) {
-					// disable cloud init and clear cache to force cloud init on restore
-					if(computeServer.sourceImage && computeServer.sourceImage.isCloudInit && computeServer.serverOs?.platform != 'windows') {
-						getPlugin().morpheus.executeCommandOnServer(computeServer, 'sudo rm -f /etc/cloud/cloud.cfg.d/99-manual-cache.cfg; sudo cp /etc/machine-id /tmp/machine-id-old ; sync', true, computeServer.sshUsername, computeServer.sshPassword, null, null, null, null, true, true).blockingGet()
-					}
+				//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, computeServer.externalId, backupProvider)
+				// disable cloud init and clear cache to force cloud init on restore
+				if(computeServer.sourceImage && computeServer.sourceImage.isCloudInit && computeServer.serverOs?.platform != 'windows') {
+					getPlugin().morpheus.executeCommandOnServer(computeServer, 'sudo rm -f /etc/cloud/cloud.cfg.d/99-manual-cache.cfg; sudo cp /etc/machine-id /tmp/machine-id-old ; sync', true, computeServer.sshUsername, computeServer.sshPassword, null, null, null, null, true, true).blockingGet()
+				}
 
-					String vmId = vmIdResults.data.virtualMachine?.id
-					ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId)
-					log.debug("executeBackup requestResult: {}", backupRequestResult)
-					if(backupRequestResult.success == true) {
-						rtn.data.backupResult.status = RubrikBackupStatusUtility.getBackupStatus(backupRequestResult.data.backupRequest?.status)
-						if(backupRequestResult.data.backupRequest?.id){
-							String requestId = backupRequestResult.data.backupRequest?.id
-							rtn.data.backupResult.setConfigProperty("backupRequestId", requestId)
-							if(backupRequestResult.data.backupRequest.startTime) {
-								rtn.data.backupResult.startDate = DateUtility.parseDate(backupRequestResult.data.backupRequest.startTime)
-							}
-							rtn.data.updates = true
-							rtn.success = true
-						} else {
-							rtn.success = false
-							rtn.msg = "No "
+				String vmId = backup.getConfigProperty("rubrikFid")
+				ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId)
+				log.debug("executeBackup requestResult: {}", backupRequestResult)
+				if(backupRequestResult.success == true) {
+					rtn.data.backupResult.status = RubrikBackupStatusUtility.getBackupStatus(backupRequestResult.data.backupRequest?.status)
+					if(backupRequestResult.data.backupRequest?.id){
+						String requestId = backupRequestResult.data.backupRequest?.id
+						rtn.data.backupResult.setConfigProperty("backupRequestId", requestId)
+						if(backupRequestResult.data.backupRequest.startTime) {
+							rtn.data.backupResult.startDate = DateUtility.parseDate(backupRequestResult.data.backupRequest.startTime)
 						}
-
+						rtn.data.updates = true
+						rtn.success = true
 					} else {
 						rtn.success = false
-						rtn.msg = backupRequestResult.data.backupRequest.error ?: "failed to initialize backup snapshot"
+						rtn.msg = "No "
 					}
+
 				} else {
 					rtn.success = false
-					rtn.msg = "Unable to find vcenter virtual machine in Rubrik."
-					log.debug("Unable to find vcenter virtual machine in Rubrik.")
+					rtn.msg = backupRequestResult.data.backupRequest.error ?: "failed to initialize backup snapshot"
 				}
+
 			}
 		} catch(Exception e) {
 			rtn.success = false
@@ -238,9 +237,10 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			Map authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 
 			String snapshotId = null
+			String clusterId = backup.getConfigProperty('clusterId')
 			String requestId = backupResult.getConfigProperty('backupRequestId')
 			if(requestId) {
-				ServiceResponse requestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, requestId)
+				ServiceResponse requestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, clusterId, requestId)
 				Map requestDetail = requestResult.data.request
 				if(!snapshotId && requestResult.success && requestDetail.status == RubrikBackupStatusUtility.STATUS_SUCCEEDED) {
 					log.debug("snapshot created successfully, getting snapshot info for backup result")

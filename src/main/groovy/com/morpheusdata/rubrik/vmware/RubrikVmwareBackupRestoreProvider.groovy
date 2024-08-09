@@ -106,58 +106,55 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 
 				if(sourceServer && sourceDatastore) {
 					log.debug("Source server ext ID: ${sourceServer.externalId}")
-					ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
-					log.debug("vmIdResults: ${vmIdResults}")
-					if(vmIdResults.success && vmIdResults.data.virtualMachine.id) {
-						def vmDetailResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVirtualMachine(authConfig, vmIdResults.data.virtualMachine.id)
-						if(vmDetailResult.success) {
-							def hostId = vmDetailResult.data.virtualMachine.hostId
-							def vmHost = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getHost(authConfig, hostId)
-							if(vmHost.success) {
-								log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId}")
-								def datastore = vmHost.data.host.datastores.find {
-									log.debug("host datastore: ${it}")
-									return it.id.endsWith(sourceDatastore.externalId)
-								}
-								if(datastore) {
-									def restoreOpts = [
-										datastoreId: datastore.id,
-										hostId     : hostId,
-										vmName     : targetWorkload.server?.name ?: targetWorkload.internalName
-									]
-									ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id, restoreOpts)
-									log.debug("restoreResults: ${restoreResults}")
-									if(restoreResults.success) {
-										ServiceResponse restoreTaskResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForRestoredVirtualMachine(authConfig, restoreResults.data.restoreRequest.id)
-										log.debug("wait for restore vm restults: ${restoreTaskResults}")
-										if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.id) {
-											rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.id]
-											rtn.success = true
-										} else {
-											rtn.success = false
-											rtn.msg = restoreTaskResults.msg ?: "Failed to restore virtual machine"
-										}
+					//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
+					String vmId = backup.getConfigProperty("rubrikFid")
 
-
-										rtn.data.updates = true
-										rtn.data.backupRestore.externalStatusRef = restoreResults.data.restoreRequest.id
-										rtn.data.backupRestore.containerId = targetWorkload.id
-										rtn.data.backupRestore.setConfigProperty("restoreType", "new")
+					def vmDetailResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVirtualMachine(authConfig, vmId)
+					if(vmDetailResult.success) {
+						def hostId = vmDetailResult.data.virtualMachine.hostId
+						def vmHost = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getHost(authConfig, hostId)
+						if(vmHost.success) {
+							log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId}")
+							def datastore = vmHost.data.host.datastores.find {
+								log.debug("host datastore: ${it}")
+								return it.id.endsWith(sourceDatastore.externalId)
+							}
+							if(datastore) {
+								def restoreOpts = [
+									datastoreId: datastore.id,
+									hostId     : hostId,
+									vmName     : targetWorkload.server?.name ?: targetWorkload.internalName
+								]
+								ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToNewVirtualMachine(authConfig, backupResult.externalId, vmId, restoreOpts)
+								log.debug("restoreResults: ${restoreResults}")
+								if(restoreResults.success) {
+									String clusterId = backup.getConfigProperty("clusterId")
+									ServiceResponse restoreTaskResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForRestoredVirtualMachine(authConfig, clusterId, restoreResults.data.restoreRequest.id)
+									log.debug("wait for restore vm restults: ${restoreTaskResults}")
+									if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.id) {
+										rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.id]
+										rtn.success = true
 									} else {
 										rtn.success = false
-										rtn.msg = "Unable to restore backup: ${restoreResults.msg ?: "Failed to initiate backup restore task"}"
+										rtn.msg = restoreTaskResults.msg ?: "Failed to restore virtual machine"
 									}
+
+
+									rtn.data.updates = true
+									rtn.data.backupRestore.externalStatusRef = restoreResults.data.restoreRequest.id
+									rtn.data.backupRestore.containerId = targetWorkload.id
+									rtn.data.backupRestore.setConfigProperty("restoreType", "new")
 								} else {
 									rtn.success = false
-									rtn.msg = "Unable to determine target datastore."
+									rtn.msg = "Unable to restore backup: ${restoreResults.msg ?: "Failed to initiate backup restore task"}"
 								}
 							} else {
 								rtn.success = false
-								rtn.msg = "Unable to find the target host on the service provider."
+								rtn.msg = "Unable to determine target datastore."
 							}
 						} else {
 							rtn.success = false
-							rtn.msg = "Unable to find target vm on the service provider"
+							rtn.msg = "Unable to find the target host on the service provider."
 						}
 					} else {
 						rtn.success = false
@@ -179,8 +176,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			} else {
 				log.debug("Restoring to existing VM with snapshot ID: ${backupResult.externalId}")
 				// restore to the current virtual machine
-				ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
-				ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmIdResults.data.virtualMachine.id)
+				//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
+				String vmId = backup.getConfigProperty("rubrikFid")
+				ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmId)
 				if(restoreResults.success) {
 					rtn.success = true
 					rtn.data.updates = true
@@ -211,9 +209,10 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 			BackupProvider backupProvider = backup.backupProvider
 			def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 			String restoreRequestId = backupRestore.externalStatusRef
+			String clusterId = backup.getConfigProperty("clusterId")
 			log.debug("restore request id: {}", restoreRequestId)
 			if(restoreRequestId) {
-				ServiceResponse restoreRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, restoreRequestId)
+				ServiceResponse restoreRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, clusterId, restoreRequestId)
 				log.debug("restoreRequestResult: {}", restoreRequestResult)
 				Map restoreRequest = restoreRequestResult.data.request
 

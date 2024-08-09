@@ -79,7 +79,7 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 	}
 
 	def rubrikPlatformTypes(params) {
-		def rtn = [[name:'CDM', value: ''], [name: 'RSC', value: 'RSC']]
+		def rtn = [[name: 'RSC', value: 'RSC']]
 		return rtn
 	}
 }

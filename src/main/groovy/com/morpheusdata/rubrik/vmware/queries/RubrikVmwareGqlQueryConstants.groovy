@@ -48,6 +48,27 @@ class RubrikVmwareGqlQueryConstants {
 
     """
 
+    static final getVirtualMachineId = """
+        query getVirtualMachineId(\$moid: [String!]) {
+            vSphereVmNewConnection(filter: {field: NAME, texts: \$moid}) {
+                count
+                nodes {
+                    cdmId
+                    id
+                    name
+                    cluster {
+                        id
+                    }
+                    physicalPath {
+                        fid
+                        name
+                        objectType
+                    }
+                }
+            }
+        } 
+    """
+
     static final updateVirtualMachine = """
         mutation updateVirtualMachine (\$id: String!, \$configuredSlaDomainId: String ) {
             updateVsphereVm (input: {
@@ -193,29 +214,6 @@ class RubrikVmwareGqlQueryConstants {
         }
     """
 
-    static final getVirtualDisk = """
-        query getVirtualDisk(\$fid: UUID!) {
-            vSphereVmNew (fid:\$fid) {
-                cdmId
-                id
-                vsphereVirtualDisks {
-                    nodes {
-                        fid
-                        cdmId
-                        clusterUuid
-                        size
-                        virtualMachineId
-                        datastoreFid
-                        datastore {
-                            id
-                            name
-                        }
-                    }
-                }
-            }
-        }
-    """
-
     static final listSnapshotsForVirtualMachine = """
         query SnapshotsListSingleQuery(\$workloadId: String!) {
             snapshotsListConnection: snapshotOfASnappableConnection(workloadId: \$workloadId) {
@@ -266,12 +264,11 @@ class RubrikVmwareGqlQueryConstants {
     """
 
     static final deleteSnapshot = """
-        mutation deleteSnapshot (\$snapshotIds: [UUID!]!) {
-            deleteUnmanagedSnapshots(input: {
-                snapshotIds: \$snapshotIds
-            }) {
-                success
-            }
+        mutation deleteSnapshot (\$location: DeleteVmwareSnapshotRequestLocation!, \$id: String!) {
+            vsphereVmDeleteSnapshot(input: {
+                location: \$location
+                id: \$id
+            })
         }
     """
 
@@ -312,4 +309,16 @@ class RubrikVmwareGqlQueryConstants {
         }
     """
 
+    static final getHostId = """
+        query getHostId(\$fid: UUID!) {
+            vSphereHost(fid: \$fid) {
+                id
+                name
+                cdmId
+                cluster {
+                    id
+                }
+            }
+        }
+    """
 }

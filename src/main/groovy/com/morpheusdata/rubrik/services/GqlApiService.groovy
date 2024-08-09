@@ -1,6 +1,8 @@
 package com.morpheusdata.rubrik.services
 
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.util.HttpApiClient
+import com.morpheusdata.model.AccountCredential
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.queries.GqlQueryConstants
@@ -10,17 +12,36 @@ import org.apache.http.client.utils.URIBuilder
 
 @Slf4j
 class GqlApiService implements PlatformApiServiceInterface {
+
+	private MorpheusContext morpheusContext
+	GqlApiService(MorpheusContext morpheusContext) {
+		this.morpheusContext = morpheusContext
+	}
+
 	static tokenBuffer = 43200l * 10l
 	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
+		if(!backupProviderModel.credentialLoaded) {
+			AccountCredential accountCredential
+			try {
+				accountCredential = morpheusContext.services.accountCredential.loadCredentials(backupProviderModel)
+			} catch (e) {
+				log.error("could not load credentials: ${e}")
+			}
+		}
+
+		backupProviderModel.credentialLoaded = true
+		backupProviderModel.credentialData = accountCredential?.data
+
 		def rtn = [
-			apiUrl: backupProviderModel.serviceUrl,
-			apiVersion: 'v1',
-			token: backupProviderModel.serviceToken,
-			expires: '',
-			gqlPath: '/api/graphql',
-			basePath: '/api'
+				apiUrl: backupProviderModel.serviceUrl,
+				apiVersion: 'v1',
+				token: backupProviderModel.credentialData?.password ?: backupProviderModel.serviceToken,
+				expires: '',
+				gqlPath: '/api/graphql',
+				basePath: '/api'
 		]
+
 		// username is client_id, password is client_secret, service token is access token
 		if(!backupProviderModel.serviceToken && backupProviderModel.username && backupProviderModel.password) {
 			rtn.username = backupProviderModel.username
@@ -34,6 +55,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 	ServiceResponse getToken(Map authConfig) {
 		def rtn = ServiceResponse.prepare()
 		def requestToken = true
+
 		if(authConfig.token) {
 			if(authConfig.expires) {
 				// check if token in authConfig is valid
@@ -65,6 +87,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 			} else {
 				def apiPath = authConfig.basePath + '/client_token'
 				HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(ignoreSSL: true)
+				log.info("apiUrl: ${authConfig.apiUrl}, apiPath: ${apiPath}, user: ${authConfig.username}, pass: ${authConfig.password}")
 				ServiceResponse results = HttpApiClient.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
 				rtn = results
 				rtn.success = results?.success && results?.error != true
@@ -194,6 +217,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 	//---- utility methods
 	@Override
 	ServiceResponse internalApiRequest(Map authConfig, String path, String requestMethod='POST', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
+		log.info("authConfig:${authConfig}, path:${path}")
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)

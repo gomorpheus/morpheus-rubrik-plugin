@@ -44,7 +44,7 @@ class SnapshotService {
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
 				}.flatMap() {  Map<String, MorpheusModel> backupServerDto ->
-					ServiceResponse snapshotListResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSnapshotsForVirtualMachine(authConfig, backupServerDto.server.externalId)
+					ServiceResponse snapshotListResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSnapshotsForVirtualMachine(authConfig, backupServerDto.backup.getConfigProperty("rubrikFid"))
 				log.debug("snapshotLIstResults: ${snapshotListResults}")
 					List<Map> snapshotList = []
 					if(snapshotListResults.success) {

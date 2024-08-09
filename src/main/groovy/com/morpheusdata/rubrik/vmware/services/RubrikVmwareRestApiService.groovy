@@ -16,34 +16,24 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		return internalGetApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine')
 	}
 
-	ServiceResponse getVirtualMachineId(Map authConfig, String vmExternalId) {
+	ServiceResponse getVirtualMachineByMoid(Map authConfig, String vmExternalId, String hostExternalId) {
 		def query = [moid: vmExternalId]
 		return internalGetApiRequest(authConfig, '/vmware/vm', 'virtualMachine', query)
 	}
 
 
-	ServiceResponse updateVirtualMachine(Map authConfig, String vmExternalId, Map vmOpts, Map opts = [:]) {
+	ServiceResponse updateVirtualMachine(Map authConfig, String vmId, Map vmOpts, Map opts = [:]) {
 		ServiceResponse rtn = ServiceResponse.prepare()
 		try {
-			def vmIdResults = getVirtualMachineId(authConfig, vmExternalId)
-			log.debug("vmIdResults: ${vmIdResults}")
-			def vmData = vmIdResults.data.virtualMachine instanceof List ?  vmIdResults.data.virtualMachine.getAt(0) : vmIdResults.data.virtualMachine
-			if(vmIdResults.success && vmData?.id) {
-				String vmId = vmData.id
-				log.debug("vmId: ${vmId}")
-				log.debug("vmOpts: ${vmOpts}")
-				rtn = internalPatchApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine', vmOpts)
-			} else {
-				rtn.msg = "VM not found in Rubrik."
-			}
+			rtn = internalPatchApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine', vmOpts)
 		} catch(e) {
 			log.error("error updating virtual machine: {}", e, e)
 		}
 		return rtn
 	}
 
-	ServiceResponse backupVirtualMachine(Map authConfig, String vmExternalId, Map opts = [:]) {
-		return internalPostApiRequest(authConfig, '/vmware/vm/' + vmExternalId + '/snapshot', 'backupRequest')
+	ServiceResponse backupVirtualMachine(Map authConfig, String vmId, Map opts = [:]) {
+		return internalPostApiRequest(authConfig, '/vmware/vm/' + vmId + '/snapshot', 'backupRequest')
 	}
 
 	ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
@@ -83,23 +73,10 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		return internalGetApiRequest(authConfig, '/vmware/host/' + hostId, 'host')
 	}
 
-	ServiceResponse getVirtualDisk(Map authConfig, String diskId) {
-		return internalGetApiRequest(authConfig, '/vmware/vm/virtual_disk/' + diskId, 'virtualDisk')
-	}
-
-	ServiceResponse listSnapshotsForVirtualMachine(Map authConfig, vmExternalId) {
+	ServiceResponse listSnapshotsForVirtualMachine(Map authConfig, vmId) {
 		def rtn = ServiceResponse.prepare()
 		try {
-			ServiceResponse vmIdResults = getVirtualMachineId(authConfig, vmExternalId)
-			log.debug("vmIdResults: ${vmIdResults}")
-			def vmData = vmIdResults.data.virtualMachine instanceof List ?  vmIdResults.data.virtualMachine.getAt(0) : vmIdResults.data.virtualMachine
-
-			if(vmIdResults.success && vmData?.id) {
-				String vmId = vmData.id
-				rtn = internalGetApiRequest(authConfig, '/vmware/vm/' + vmId + '/snapshot', 'snapshots')
-			} else {
-				rtn.msg = "VM not found in Rubrik."
-			}
+			rtn = internalGetApiRequest(authConfig, '/vmware/vm/' + vmId + '/snapshot', 'snapshots')
 		} catch(e) {
 			log.error("error listing snapshots: ${e}", e)
 		}
@@ -107,7 +84,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 	}
 
 	// was `getRequest`
-	ServiceResponse getVmTaskRequest(Map authConfig, String requestId) {
+	ServiceResponse getVmTaskRequest(Map authConfig, String clusterId, String requestId) {
 		return internalGetApiRequest(authConfig, '/vmware/vm/request/' + requestId, 'request')
 	}
 
@@ -128,7 +105,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		return internalPostApiRequest(authConfig, '/vmware/vcenter/' + serverId + '/refresh', 'request')
 	}
 
-	ServiceResponse waitForVirtualMachine(Map authConfig, String vmExternalId, backupProvider) {
+	ServiceResponse waitForVirtualMachine(Map authConfig, String vmExternalId, String hostExternalId, backupProvider) {
 		log.debug("Waiting for virtual machine {} to populate in Rubrik", vmExternalId)
 		ServiceResponse rtn = ServiceResponse.prepare()
 		ServiceResponse vmIdResponse = ServiceResponse.prepare()
@@ -137,7 +114,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		def keepGoing = true
 		// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
 		while((!vmIdResponse.success || !vmIdResponse.data?.virtualMachine?.getAt(0)?.id) && keepGoing) {
-			vmIdResponse = getVirtualMachineId(authConfig, vmExternalId)
+			vmIdResponse = getVirtualMachineByMoid(authConfig, vmExternalId, hostExternalId)
 			log.debug("vmIdWaitResponse (for attempt ${attempt}): ${vmIdResponse}")
 			if(vmIdResponse.success && vmIdResponse.data.virtualMachine?.getAt(0)?.id) {
 				log.debug("Virtual Machine now available in Rubrik")
@@ -164,7 +141,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		return rtn
 	}
 
-	ServiceResponse waitForRestoredVirtualMachine(Map authConfig, String restoreRequestId) {
+	ServiceResponse waitForRestoredVirtualMachine(Map authConfig, String clusterId, String restoreRequestId) {
 		log.debug("Waiting for restored virtual machine {} to populate in Rubrik", restoreRequestId)
 		ServiceResponse rtn = ServiceResponse.prepare()
 		def restoreRequestResult = ServiceResponse.prepare()
@@ -173,7 +150,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		def keepGoing = true
 
 		while(keepGoing) {
-			restoreRequestResult = getVmTaskRequest(authConfig, restoreRequestId)
+			restoreRequestResult = getVmTaskRequest(authConfig, clusterId, restoreRequestId)
 			log.debug("waitForRestoredVirtualMachine (for attempt ${attempt}): ${restoreRequestResult}")
 			if(restoreRequestResult.success && restoreRequestResult.data.request.id && restoreRequestResult.data.request.status == "SUCCEEDED") {
 				Boolean doRetry = false
