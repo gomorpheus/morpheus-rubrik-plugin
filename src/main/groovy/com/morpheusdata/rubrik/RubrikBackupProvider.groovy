@@ -222,9 +222,25 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 			}
 
 			def localCredentials = (backupProviderModel.credentialData?.type ?: 'local') == 'local'
-			if((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password)) {
+
+			log.info("backupProviderModel.username: ${backupProviderModel.getConfigProperty("username")}")
+			log.info("backupProviderModel.password: ${backupProviderModel.getConfigProperty("password")}")
+			log.info("backupProviderModel.credentialData: ${backupProviderModel.credentialData}")
+
+			def platformType = (backupProviderModel.getConfigProperty("platformType") == "RSC") ? "RSC" : "CDM"
+			if(((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password)) && platformType == 'CDM') {
 				rtn.msg = rtn.msg ?: 'Enter an api token'
 				rtn.errors.serviceToken = 'Enter an api token'
+			}
+
+			if(((localCredentials && !backupProviderModel?.getConfigProperty("username")) || (!localCredentials && !backupProviderModel.credentialData?.username)) && platformType == 'RSC') {
+				rtn.msg = rtn.msg ?: 'Enter client id'
+				rtn.errors.clientSecret = 'Enter client id'
+			}
+
+			if(((localCredentials && !backupProviderModel?.getConfigProperty("password")) || (!localCredentials && !backupProviderModel.credentialData?.password)) && platformType == 'RSC') {
+				rtn.msg = rtn.msg ?: 'Enter client secret'
+				rtn.errors.clientSecret = 'Enter client secret'
 			}
 
 			if(rtn.errors.size() == 0) {

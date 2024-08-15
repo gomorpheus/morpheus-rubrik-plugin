@@ -19,7 +19,6 @@ import com.morpheusdata.rubrik.RubrikPlugin
 import groovy.util.logging.Slf4j
 import io.reactivex.rxjava3.core.Observable
 import java.time.Instant
-import io.reactivex.Observable
 import java.time.temporal.ChronoUnit
 
 @Slf4j

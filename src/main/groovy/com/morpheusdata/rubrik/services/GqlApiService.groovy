@@ -10,6 +10,8 @@ import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 import org.apache.http.client.utils.URIBuilder
 
+import java.nio.file.Path
+
 @Slf4j
 class GqlApiService implements PlatformApiServiceInterface {
 
@@ -22,31 +24,43 @@ class GqlApiService implements PlatformApiServiceInterface {
 	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
 		if(!backupProviderModel.credentialLoaded) {
-			AccountCredential accountCredential
+			AccountCredential accountCredential = null
 			try {
+				backupProviderModel = morpheusContext.services.backupProvider.get(backupProviderModel.id)
 				accountCredential = morpheusContext.services.accountCredential.loadCredentials(backupProviderModel)
 			} catch (e) {
 				log.error("could not load credentials: ${e}")
 			}
+			backupProviderModel.credentialLoaded = true
+			backupProviderModel.credentialData = accountCredential?.data
 		}
-
-		backupProviderModel.credentialLoaded = true
-		backupProviderModel.credentialData = accountCredential?.data
 
 		def rtn = [
 				apiUrl: backupProviderModel.serviceUrl,
 				apiVersion: 'v1',
-				token: backupProviderModel.credentialData?.password ?: backupProviderModel.serviceToken,
+				token: backupProviderModel.serviceToken,
 				expires: '',
 				gqlPath: '/api/graphql',
 				basePath: '/api'
 		]
 
 		// username is client_id, password is client_secret, service token is access token
-		if(!backupProviderModel.serviceToken && backupProviderModel.username && backupProviderModel.password) {
-			rtn.username = backupProviderModel.username
-			rtn.password = backupProviderModel.password
+		if(!backupProviderModel.serviceToken) {
+			def localCredentials = (backupProviderModel.credentialData?.type == 'local' ? 'local' : 'client-id-secret') == 'local'
+			log.info("LOCAL: ${localCredentials}")
+			if(localCredentials && backupProviderModel.getConfigProperty("username") && backupProviderModel.getConfigProperty("password")) {
+				log.info("LOCAL CREDENTIALS")
+				rtn.username = backupProviderModel.getConfigProperty("username")
+				rtn.password = backupProviderModel.getConfigProperty("password")
+			}
+
+			if(!localCredentials && backupProviderModel.credentialData.username && backupProviderModel.credentialData.password) {
+				log.info("STORED CREDENTIALS")
+				rtn.username = backupProviderModel.credentialData.username
+				rtn.password = backupProviderModel.credentialData.password
+			}
 		}
+
 		log.debug("getAuthConfig: ${rtn}")
 		return rtn
 	}
@@ -85,10 +99,19 @@ class GqlApiService implements PlatformApiServiceInterface {
 				rtn.sessionId = cachedToken.sessionId
 				rtn.organizationId = cachedToken.organizationId
 			} else {
-				def apiPath = authConfig.basePath + '/client_token'
+				String apiUrl = authConfig.apiUrl.toString()
+				String apiPath = authConfig.basePath + '/client_token'
+				String username = authConfig.username.toString()
+				String password = authConfig.password.toString()
 				HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(ignoreSSL: true)
-				log.info("apiUrl: ${authConfig.apiUrl}, apiPath: ${apiPath}, user: ${authConfig.username}, pass: ${authConfig.password}")
-				ServiceResponse results = HttpApiClient.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
+				requestOpts.body = [ "client_id":username, "client_secret":password ]
+				String method = "POST"
+				log.info("getToken authConfig: ${authConfig}")
+				log.info("apiUrl: ${apiUrl}, apiPath: ${apiPath}, user: ${username}, pass: ${password}, requestOpts: ${requestOpts}, method: ${method}")
+
+				HttpApiClient client = new HttpApiClient()
+				ServiceResponse results = client.callJsonApi(apiUrl, apiPath, username, password, requestOpts, method)
+				log.info("results: ${results}")
 				rtn = results
 				rtn.success = results?.success && results?.error != true
 				cacheToken(authConfig.username, authConfig)
@@ -221,8 +244,9 @@ class GqlApiService implements PlatformApiServiceInterface {
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)
-			log.debug("API Token results : ${tokenResults}")
+			log.info("API Token results : ${tokenResults}")
 			if(tokenResults.success == true) {
+				authConfig.token = tokenResults.data.access_token
 				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, authConfig.gqlPath)
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}")
 				Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
@@ -237,8 +261,11 @@ class GqlApiService implements PlatformApiServiceInterface {
 				ServiceResponse results = ServiceResponse.success([hasMore: true])
 				rtn.data = [(dataKey):[], total:0]
 				while(results.success && results.data?.hasMore) {
-					results = HttpApiClient.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
-					log.debug("API Result: ${results}")
+					HttpApiClient client = new HttpApiClient()
+					log.info("265 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
+					log.info("266 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
+					results = client.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
+					log.info("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false) {
 						if(results.data.data != null) {
 							results.data.data?.each { row ->

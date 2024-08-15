@@ -1,6 +1,6 @@
 package com.morpheusdata.rubrik.vmware.services
 
-
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.services.GqlApiService
 import com.morpheusdata.rubrik.vmware.queries.RubrikVmwareGqlQueryConstants
@@ -8,6 +8,9 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePlatformApiServiceInterface {
+    RubrikVmwareGqlApiService(MorpheusContext morpheusContext) {
+        super(morpheusContext)
+    }
 
     ServiceResponse listVirtualMachines(Map authConfig) {
         String query = RubrikVmwareGqlQueryConstants.listVirtualMachines.replaceAll("[\\r\\n]", "")

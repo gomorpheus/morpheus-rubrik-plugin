@@ -7,8 +7,9 @@ class ApiService {
     private GqlApiService gqlApiService
     private MorpheusContext morpheusContext
     ApiService() {
-        this.restApiService = new RestApiService(morpheusContext)
+        this.restApiService = new RestApiService()
         this.gqlApiService = new GqlApiService(morpheusContext)
+        this.morpheusContext = morpheusContext
     }
 
     PlatformApiServiceInterface getPlatformApiService(String platformType) {
