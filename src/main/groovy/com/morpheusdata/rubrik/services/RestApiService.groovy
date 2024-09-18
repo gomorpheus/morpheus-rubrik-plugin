@@ -1,5 +1,6 @@
 package com.morpheusdata.rubrik.services
 
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.util.RestApiUtil
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
@@ -19,6 +20,11 @@ import org.apache.tools.ant.types.spi.Service
 
 @Slf4j
 class RestApiService implements PlatformApiServiceInterface {
+	private MorpheusContext morpheusContext
+	RestApiService(MorpheusContext morpheusContext) {
+		this.morpheusContext = morpheusContext
+	}
+
 	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
 		def rtn = [
@@ -32,8 +38,6 @@ class RestApiService implements PlatformApiServiceInterface {
 			rtn.password = backupProviderModel.password
 		}
 		log.debug("getAuthConfig: ${rtn}")
-		println "\u001B[33mSL Log - authConfig - ${rtn}\u001B[0m"
-
 		return rtn
 	}
 
@@ -101,14 +105,13 @@ class RestApiService implements PlatformApiServiceInterface {
 
 	@Override
 	ServiceResponse internalApiRequest(Map authConfig, String path, String requestMethod='GET', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
+		log.debug("REST INTERNAL API REQUEST: authConfig: ${authConfig}, path: ${path}, method: ${requestMethod}, datakey: ${dataKey}, body: ${body}, queryParams: ${queryParams}, headers: ${addHeaders}")
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)
 			log.debug("API Token results : ${tokenResults}")
 			if(tokenResults.success == true) {
-				log.debug("basePath: ${authConfig.basePath}, path: ${path}")
 				String tmpPath = (authConfig.basePath?.endsWith("/") ? authConfig.basePath : authConfig.basePath + "/") + (path.startsWith("/") ? path.substring(1) : path)
-				log.debug("tmpPath: ${tmpPath}")
 				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, tmpPath)
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}")
 				Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
@@ -123,6 +126,8 @@ class RestApiService implements PlatformApiServiceInterface {
 				ServiceResponse results = ServiceResponse.success([hasMore: true])
 				rtn.data = [(dataKey):[], total:0]
 				while(results.success && results.data?.hasMore) {
+					log.debug("274 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
+					log.debug("275 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
 					results = RestApiUtil.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
 					log.debug("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false) {
@@ -150,8 +155,6 @@ class RestApiService implements PlatformApiServiceInterface {
 		} catch(e) {
 			log.error("error during api request {}: {}", path, e, e)
 		}
-		println "\u001B[33mSL Log - internalapirequest rtn - ${rtn}\u001B[0m"
-
 		return rtn
 	}
 }

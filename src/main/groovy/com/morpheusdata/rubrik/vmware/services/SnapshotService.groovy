@@ -1,5 +1,6 @@
 package com.morpheusdata.rubrik.vmware.services
 
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.backup.util.BackupResultUtility
 import com.morpheusdata.core.backup.util.BackupStatusUtility
 import com.morpheusdata.core.data.DataAndFilter
@@ -26,10 +27,12 @@ class SnapshotService {
 
 	private RubrikPlugin plugin
 	private RubrikVmwareApiService apiService
+	private MorpheusContext morpheusContext
 
-	SnapshotService(RubrikPlugin plugin) {
+	SnapshotService(RubrikPlugin plugin, MorpheusContext morpheusContext) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiService = new RubrikVmwareApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
@@ -48,8 +51,9 @@ class SnapshotService {
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
 				}.concatMap() {  Map<String, MorpheusModel> backupServerDto ->
+					log.info("EXECUTE CACHE: ${backupServerDto.backup.config}")
 					ServiceResponse snapshotListResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSnapshotsForVirtualMachine(authConfig, backupServerDto.backup.getConfigProperty("rubrikFid"))
-				    log.debug("snapshotLIstResults: ${snapshotListResults}")
+				    log.info("SNAPSHOT LIST RESULTS: ${snapshotListResults}")
 					List<Map> snapshotList = []
 					if(snapshotListResults.success) {
 						snapshotList = snapshotListResults.data.snapshots
@@ -60,6 +64,7 @@ class SnapshotService {
 						}
 						log.error(errorMsg)
 					}
+					log.info("SNAPSHOTS LIST: ${snapshotList}")
 
 					Observable<BackupResultIdentityProjection> backupResultIdentityProjections = plugin.morpheus.async.backup.backupResult.listIdentityProjections(
 						new DataQuery(backupProviderModel.account)
@@ -72,6 +77,7 @@ class SnapshotService {
 					)
 					SyncTask<BackupResultIdentityProjection, Map, BackupResultModel> syncTask = new SyncTask(backupResultIdentityProjections, snapshotList)
 					syncTask.addMatchFunction { BackupResultIdentityProjection localItem, Map remoteItem ->
+						log.info("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId} ${localItem.backupName}")
 						localItem.externalId == remoteItem.id
 					}.onDelete { List<BackupResultIdentityProjection> deleteList ->
 						List<BackupResultIdentityProjection> filteredDeleteList = plugin.morpheus.services.backup.backupResult.listIdentityProjections(

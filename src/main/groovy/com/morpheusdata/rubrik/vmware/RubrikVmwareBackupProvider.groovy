@@ -30,7 +30,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
 	RubrikVmwareBackupProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		super(plugin, morpheusContext)
-		apiService = new RubrikVmwareApiService()
+		apiService = new RubrikVmwareApiService(morpheusContext)
 	}
 
 	@Override
@@ -91,7 +91,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 	@Override
 	RubrikVmwareBackupExecutionProvider getExecutionProvider() {
 		if(!this.executionProvider) {
-			this.executionProvider = new RubrikVmwareBackupExecutionProvider(getPlugin())
+			this.executionProvider = new RubrikVmwareBackupExecutionProvider(getPlugin(), morpheus)
 		}
 		return this.executionProvider
 	}
@@ -99,7 +99,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 	@Override
 	RubrikVmwareBackupRestoreProvider getRestoreProvider() {
 		if(!this.restoreProvider) {
-			this.restoreProvider = new RubrikVmwareBackupRestoreProvider(getPlugin())
+			this.restoreProvider = new RubrikVmwareBackupRestoreProvider(getPlugin(), morpheus)
 		}
 		return this.restoreProvider
 	}
@@ -133,7 +133,7 @@ class RubrikVmwareBackupProvider extends AbstractBackupTypeProvider {
 
 	private SnapshotService getSlaSnapshotService() {
 		if(!this.slaSnapshotService) {
-			this.slaSnapshotService = new SnapshotService(getPlugin())
+			this.slaSnapshotService = new SnapshotService(getPlugin(), morpheus)
 		}
 
 		return this.slaSnapshotService

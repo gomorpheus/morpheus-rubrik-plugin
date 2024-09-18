@@ -8,7 +8,7 @@ class RubrikVmwareApiService {
     private MorpheusContext morpheusContext
 
     RubrikVmwareApiService(MorpheusContext morpheusContext) {
-        this.rubrikVmwareRestApiService = new RubrikVmwareRestApiService()
+        this.rubrikVmwareRestApiService = new RubrikVmwareRestApiService(morpheusContext)
         this.rubrikVmwareGqlApiService = new RubrikVmwareGqlApiService(morpheusContext)
         this.morpheusContext = morpheusContext
     }

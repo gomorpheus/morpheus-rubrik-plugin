@@ -1,5 +1,6 @@
 package com.morpheusdata.rubrik.vmware
 
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.core.Plugin;
 import com.morpheusdata.core.backup.BackupExecutionProvider
 import com.morpheusdata.core.backup.response.BackupExecutionResponse
@@ -22,11 +23,12 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 	Plugin plugin
 	RubrikVmwareApiService apiService
+	MorpheusContext morpheusContext
 
-
-	RubrikVmwareBackupExecutionProvider(Plugin plugin) {
+	RubrikVmwareBackupExecutionProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiService = new RubrikVmwareApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
 	@Override
@@ -54,8 +56,12 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			// Only need to update the VM with an SLA Domain if necessary
 			BackupProvider backupProvider = backup.backupProvider
 			def slaDomainId = opts.rubrikSlaDomain ?: backup.getConfigProperty('rubrikSlaDomain')
+			def slaDomain = !slaDomainId ? "UNPROTECTED" : plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
+			def slaDomainExternalId = !slaDomainId ? "UNPROTECTED" : slaDomain?.externalId
 			log.debug("slaDomainId: {}", slaDomainId)
-			if(slaDomainId) {
+			log.debug("slaDomain: {}", slaDomain)
+			log.debug("slaDomainExternalId: {}", slaDomainExternalId)
+			if(slaDomain) {
 				def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
 				def morphServer = null
 				if(backup.computeServerId) {
@@ -64,15 +70,24 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
 					ServiceResponse vmIdResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, morphServer.externalId, morphServer.parentServer.externalId, backupProvider)
-					log.debug("vmIdResult: ${vmIdResult}")
-					if(vmIdResult.success && vmIdResult.data.virtualMachine?.id) {
-						backup.addConfigProperty("clusterId", vmIdResult.data.vSphereVmNewConnection.nodes.cluster.id)
-						backup.addConfigProperty("rubrikFid", vmIdResult.data.vSphereVmNewConnection.nodes.id)
-						def slaDomain = plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
+					log.info("vmIdResult: ${vmIdResult.data}")
+					if(vmIdResult.success) {
+						log.info("VMID RESULT DATA 61: ${vmIdResult.data}")
+						if (vmIdResult.data.virtualMachine?.clusterId) {
+							log.info("VMIDRESULT: ${vmIdResult.data}")
+							backup.setConfigProperty("clusterId", vmIdResult.data.virtualMachine.clusterId)
+							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
+						} else if (vmIdResult.data.virtualMachine?.rubrikFid) {
+							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
+						}
+						log.info("BACKUP CLUSTER ID: ${backup.getConfigProperty("clusterId")}")
+						log.info("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
+
 						// if we find the id, update the vm with the sla domain
-						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomain?.externalId}")
+						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomainExternalId}")
 						String vmId = backup.getConfigProperty("rubrikFid")
-						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, vmId, [configuredSlaDomainId: slaDomain?.externalId])
+						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, vmId, [configuredSlaDomainId: slaDomainExternalId])
+						rtn.data = backup
 					} else {
 						rtn.success = false
 						rtn.msg = "Unable to find vcenter virtual machine in Rubrik."
@@ -110,6 +125,10 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 					}
 					if(morphServer) {
 						String vmId = backup.getConfigProperty("rubrikFid")
+						if(!vmId) {
+							rtn.success = true
+							return rtn
+						}
 						rtn = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).updateVirtualMachine(authConfig, vmId, [configuredSlaDomainId: "INHERIT"]) // INHERIT or UNPROTECTED
 						log.debug("deleteBackup API results: {}", rtn)
 						if(!rtn.success && rtn.msg.contains("not found")) {
@@ -126,7 +145,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				//orphaned from backupprovider, just clean up
 				rtn.success = true				
 			}
-			
+
 		} catch (Throwable t) {
 			log.error(t.message, t)
 			throw new RuntimeException("Unable to remove backup:${t.message}", t)
@@ -182,7 +201,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 	@Override
 	ServiceResponse<BackupExecutionResponse> executeBackup(Backup backup, BackupResult backupResult, Map executionConfig, Cloud cloud, ComputeServer computeServer, Map opts) {
-		log.debug("Executing backup {} with result {}", backup.id, backupResult.id)
+		log.info("Executing backup {} with result {}", backup.id, backupResult.id)
 		ServiceResponse<BackupExecutionResponse> rtn = ServiceResponse.prepare(new BackupExecutionResponse(backupResult))
 		try {
 			def backupProvider = backup.backupProvider
@@ -195,6 +214,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				}
 
 				String vmId = backup.getConfigProperty("rubrikFid")
+				log.info("EXECUTE BACKUP: ${backup.config}")
+				log.info("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
 				ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId)
 				log.debug("executeBackup requestResult: {}", backupRequestResult)
 				if(backupRequestResult.success == true) {
@@ -209,12 +230,12 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 						rtn.success = true
 					} else {
 						rtn.success = false
-						rtn.msg = "No "
+						rtn.msg = "No backup execution response"
 					}
 
 				} else {
 					rtn.success = false
-					rtn.msg = backupRequestResult.data.backupRequest.error ?: "failed to initialize backup snapshot"
+					rtn.msg = backupRequestResult.data?.backupRequest?.error ?: "failed to initialize backup snapshot"
 				}
 
 			}
@@ -240,16 +261,21 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			String requestId = backupResult.getConfigProperty('backupRequestId')
 			if(requestId) {
 				ServiceResponse requestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, clusterId, requestId)
+				log.info("REQUEST RESULT: ${requestResult}")
+
 				Map requestDetail = requestResult.data.request
+				log.info("REQUEST DETAIL: ${requestDetail}")
 				if(!snapshotId && requestResult.success && requestDetail.status == RubrikBackupStatusUtility.STATUS_SUCCEEDED) {
 					log.debug("snapshot created successfully, getting snapshot info for backup result")
 					Map snapshotLink = requestDetail.links.find { it.rel == "result" }
 					if(snapshotLink) {
 						snapshotId = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).extractUuid(snapshotLink.href)
+						log.info("SNAPSHOT ID: ${snapshotId}")
 					}
 				}
 
 				if(requestResult.success) {
+
 					log.debug("Updating backup result progress: {}", requestResult.content)
 					boolean doUpdate = false
 
@@ -283,7 +309,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 						}
 					}
-
+					log.info("START TIME: ${requestDetail.startTime}, END TIME: ${requestDetail.endTime}")
 					rtn.data.updates = doUpdate
 					rtn.success = true
 

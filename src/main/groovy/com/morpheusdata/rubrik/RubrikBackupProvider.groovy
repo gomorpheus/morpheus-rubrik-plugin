@@ -36,7 +36,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	RubrikBackupProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		super(plugin, morpheusContext)
-		apiService = new RubrikVmwareApiService()
+		apiService = new RubrikVmwareApiService(morpheusContext)
 
 		// vmware
 		RubrikVmwareBackupProvider vmwareBackupProvider = new RubrikVmwareBackupProvider(plugin, morpheus)
@@ -194,7 +194,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 	SlaDomainService getSlaDomainService() {
 		if(!this.SlaDomainService) {
-			this.SlaDomainService = new SlaDomainService(getPlugin())
+			this.SlaDomainService = new SlaDomainService(getPlugin(), morpheus)
 		}
 
 		return this.SlaDomainService

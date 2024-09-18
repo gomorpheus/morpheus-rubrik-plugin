@@ -8,8 +8,10 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePlatformApiServiceInterface {
+    private MorpheusContext morpheusContext
     RubrikVmwareGqlApiService(MorpheusContext morpheusContext) {
         super(morpheusContext)
+        this.morpheusContext = morpheusContext
     }
 
     ServiceResponse listVirtualMachines(Map authConfig) {
@@ -19,7 +21,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "operationName": "listVirtualMachines"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'virtualMachines', payload,null, headers)
+        return internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload,null, headers)
     }
 
     ServiceResponse getVirtualMachine(Map authConfig, String vmId) {
@@ -28,40 +30,59 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "query": query,
                 "operationName": "getVirtualMachine",
                 "variables" : [
-                        "id": vmId
+                        "fid": vmId
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'virtualMachine', payload, null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vSphereDetailData', payload, null, headers)
+        log.info("GET VIRTUAL MACHINE API RESPONSE: ${rtn}")
+
+        if (rtn.success) {
+            def host = rtn.data.vSphereDetailData?[0].physicalPath.find { it ->
+                it.objectType == "VSphereHost"
+            }
+            log.info("GET VIRTUAL MACHINE HOST ID: ${host.fid}, ${host.fid.getClass()}")
+            log.info("GET VIRTUAL MACHINE: ${rtn.data.vSphereDetailData.getClass()}")
+
+            rtn.data.virtualMachine = rtn.data.vSphereDetailData
+            rtn.data.virtualMachine = rtn.data.virtualMachine.getAt(0) + [hostId: host.fid]
+        }
+        log.info("GET VIRTUAL MACHINE RTN: ${rtn}")
+        return rtn
     }
 
     ServiceResponse getVirtualMachineByMoid(Map authConfig, String vmExternalId, String hostExternalId) {
         ServiceResponse rtn = ServiceResponse.prepare()
-        String query = RubrikVmwareGqlQueryConstants.getVirtualMachineId.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getVirtualMachineByMoid.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
-                "operationName": "getVirtualMachineId",
+                "operationName": "getVirtualMachineByMoid",
                 "variables": [
                         "moid": vmExternalId
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        def response = internalPostApiRequest(authConfig, null, 'virtualMachine', payload, null, headers)
+        def response = internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload, null, headers)
+        log.info("GETVIRTUALMACHINEBYMOID: ${vmExternalId}, ${hostExternalId}")
+        log.info("GETVIRTUALMACHINEBYMOID RESPONSE: ${response}")
         rtn.data = findMatchedCluster(authConfig, response, hostExternalId)
         rtn.success = true
         return rtn
     }
 
     Map findMatchedCluster(Map authConfig, ServiceResponse vmIdResponse, String parentServerExternalId) {
-        vmIdResponse.data.vSphereVmNewConnection.nodes.find { node ->
+        log.info("FIND MATCHED CLUSTER: ${vmIdResponse.data}, ${parentServerExternalId}")
+        vmIdResponse.data.vSphereVmNewConnection.find { node ->
             def vmHost = node.physicalPath.find { it ->
                 it.objectType == "VSphereHost"
             }
 
             def host = getHostById(authConfig, vmHost.fid)
-            String hostId = host.data.vSphereHost.cdmId.split("-host-")[1]
+            def cdmId = host.data.vSphereHost.cdmId
+            String hostId = cdmId[0].split('host-')[1]
+            log.info("HOST ID: ${hostId}")
 
-            if (parentServerExternalId == hostId) {
+            if (parentServerExternalId.split('-')[1] == hostId) {
                 return true
             } else {
                 log.error("vm host id does not match parent id")
@@ -71,33 +92,47 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
     }
 
     ServiceResponse getHostById(Map authConfig, String hostId) {
-        String query = RubrikVmwareGqlQueryConstants.getHostId.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getHostById.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
-                "operationName": "getHostId",
+                "operationName": "getHostById",
                 "variables": [
                         "fid": hostId
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'hostId', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'vSphereHost', payload,null, headers)
     }
 
     ServiceResponse updateVirtualMachine(Map authConfig, String vmId, Map vmOpts, Map opts = [:]) {
         ServiceResponse rtn = ServiceResponse.prepare()
         try {
+            def slaDomainAssignType
+            def slaOptionalId
+            if(vmOpts.configuredSlaDomainId == "UNPROTECTED") {
+                slaDomainAssignType = "doNotProtect"
+                slaOptionalId = null
+            } else if (vmOpts.configuredSlaDomainId == "INHERIT") {
+                slaDomainAssignType = "noAssignment"
+                slaOptionalId = null
+            } else {
+                slaDomainAssignType = "protectWithSlaId"
+                slaOptionalId = vmOpts.configuredSlaDomainId
+            }
+
             String query = RubrikVmwareGqlQueryConstants.updateVirtualMachine.replaceAll("[\\r\\n]", "")
             def payload = [
                     "query": query,
                     "operationName": "updateVirtualMachine",
                     "variables": [
-                            "id": vmExternalId,
-                            "configuredSlaDomainId": vmOpts.configuredSlaDomainId
+                            "slaDomainAssignType": slaDomainAssignType,
+                            "slaOptionalId": slaOptionalId,
+                            "objectIds": [ vmId ]
                     ]
             ]
 
             def headers = ["Content-Type": "application/json"]
-            rtn = internalPostApiRequest(authConfig, null, 'virtualMachine', payload,null, headers)
+            rtn = internalPostApiRequest(authConfig, null, 'updateVsphereVm', payload,null, headers)
 
         } catch(e) {
             log.error("error updating virtual machine: {}", e, e)
@@ -117,7 +152,11 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'backupRequest', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vsphereOnDemandSnapshot', payload,null, headers)
+        if (rtn.success) {
+            rtn.data.backupRequest = rtn.data.vsphereOnDemandSnapshot?[0]
+        }
+        return rtn
     }
 
     ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
@@ -137,7 +176,13 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'restoreRequest', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vsphereVmInitiateInstantRecoveryV2', payload,null, headers)
+        if (rtn.success) {
+            rtn.data.restoreRequest = rtn.data.vsphereVmInitiateInstantRecoveryV2?[0]
+        }
+
+        log.info("RESTORE SNAPSHOT TO VIRTUAL MACHINE RTN: ${rtn}")
+        return rtn
     }
 
     ServiceResponse restoreSnapshotToNewVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
@@ -157,21 +202,29 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'restoreRequest', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'vsphereVmExportSnapshotV3', payload,null, headers)
     }
 
     ServiceResponse getMount(Map authConfig, String mountId) {
-        String query = RubrikVmwareGqlQueryConstants.getMount.replaceAll("[\\r\\n]", "")
+        String query = RubrikVmwareGqlQueryConstants.getMounts.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
-                "operationName": "getMount",
-                "variables": [
-                        "fid": mountId
-                ]
+                "operationName": "getMounts",
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'mount', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vSphereMountConnection', payload,null, headers)
+        if(rtn.success) {
+            def mount = rtn.data.vSphereMountConnection[0].nodes.find { node ->
+                log.info("MOUNT NODE: ${node}")
+                node.cdmId == mountId
+            }
+            log.info("MOUNT: ${mount}")
+            rtn.data.mount = mount
+            rtn.data.mount.mountedVmId = mount.newVm.id
+            log.info("MOUNTED VM ID: ${mount.newVm.id}")
+        }
+        return rtn
     }
 
     @Override
@@ -182,7 +235,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "operationName": "listHosts"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'hosts', payload, null, headers)
+        return internalPostApiRequest(authConfig, 'nodes', 'vSphereHostConnection', payload, null, headers)
     }
 
     ServiceResponse getHost(Map authConfig, String hostId) {
@@ -195,7 +248,14 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'host', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vSphereHost', payload,null, headers)
+        log.info("GET HOST RESPONSE: ${rtn}")
+        if(rtn.success) {
+            rtn.data.host = rtn.data.vSphereHost?[0]
+            rtn.data.host.datastores = rtn.data.vSphereHost[0].descendantConnection.nodes
+            log.info("DATASTORES: ${rtn.data.host.datastores}")
+        }
+        return rtn
     }
 
     ServiceResponse listSnapshotsForVirtualMachine(Map authConfig, vmId) {
@@ -210,8 +270,12 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                     ]
             ]
             def headers = ["Content-Type": "application/json"]
-            rtn = internalPostApiRequest(authConfig, null, 'snapshots', payload,null, headers)
-
+            rtn = internalPostApiRequest(authConfig, 'nodes', 'snapshotsListConnection', payload,null, headers)
+            log.info("LIST SNAPSHOTS FOR VIRTUAL MACHINE: ${rtn}")
+            log.info("DATA TYPE: ${rtn.data.getClass()}")
+            if(rtn.success) {
+                rtn.data.snapshots = rtn.data.snapshotsListConnection
+            }
         } catch(e) {
             log.error("error listing snapshots: ${e}", e)
         }
@@ -227,8 +291,11 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "variables"    : ["clusterUuid": clusterId, "requestId": requestId]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'request', payload, null, headers)
-
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vSphereVMAsyncRequestStatus', payload, null, headers)
+        if(rtn.success) {
+            rtn.data.request = rtn.data.vSphereVMAsyncRequestStatus?[0]
+        }
+        return rtn
     }
 
     ServiceResponse getSnapshot(authConfig, snapshotId) {
@@ -241,7 +308,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'snapshot', payload,null, headers)
+        return internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload,null, headers)
     }
 
     ServiceResponse deleteSnapshot(authConfig, snapshotId) {
@@ -250,12 +317,11 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "query": query,
                 "operationName": "deleteSnapshot",
                 "variables": [
-                        "id": snapshotId,
-                        "location": "V1_DELETE_VMWARE_SNAPSHOT_REQUEST_LOCATION_ALL"
+                        "snapshotIds": [ snapshotId ]
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'snapshot', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'deleteUnmanagedSnapshots', payload,null, headers)
     }
 
     ServiceResponse listVCenterServers(Map authConfig) {
@@ -265,7 +331,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "operationName": "listVCenterServers"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'vcenterServers', payload, null, headers)
+        return internalPostApiRequest(authConfig, 'nodes', 'vSphereVCenterConnection', payload, null, headers)
     }
 
     ServiceResponse refreshVcenterServer(Map authConfig, String serverId) {
@@ -278,7 +344,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'request', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'refreshVsphereVcenter', payload,null, headers)
     }
 
     ServiceResponse waitForVirtualMachine(Map authConfig, String vmExternalId, String hostExternalId, backupProvider) {
@@ -292,10 +358,10 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         while((!vmIdResponse.success || !vmIdResponse.data?.virtualMachine?.getAt(0)?.id) && keepGoing) {
             vmIdResponse = getVirtualMachineByMoid(authConfig, vmExternalId, hostExternalId)
             log.debug("vmIdWaitResponse (for attempt ${attempt}): ${vmIdResponse}")
-            if(vmIdResponse.success && vmIdResponse.data.virtualMachine?.getAt(0)?.id) {
+            if(vmIdResponse.success && vmIdResponse.data?.id) {
                 log.debug("Virtual Machine now available in Rubrik")
                 rtn.success = true
-                rtn.data = [virtualMachine: [id: vmIdResponse.data.virtualMachine?.getAt(0)?.id]]
+                rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.id, clusterId: vmIdResponse.data.cluster.id]]
                 keepGoing = false
             } else {
                 if(attempt == 0) {
@@ -303,7 +369,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                     // on first retry kick refresh vcenter servers
                     // if the vm isn't found in Rubrik the next refresh may not be for another 10 minutes,
                     // so kick off a manual refresh
-                    new VcenterServerService().executeRefresh(backupProvider, authConfig)
+                    new VcenterServerService(morpheusContext).executeRefresh(backupProvider, authConfig)
                 }
                 if(attempt < maxAttempts) {
                     sleep(60 * 1000)
@@ -339,7 +405,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                     def vmDetailResults = getRestoredVirtualMachine(authConfig, resultId)
                     log.debug("vmDetailResults: ${vmDetailResults}")
                     if(vmDetailResults.success && !vmDetailResults.data.retry) {
-                        rtn.data = [virtualMachine: [id: vmDetailResults.data.virtualMachine.moid]]
+                        rtn.data = [virtualMachine: [rubrikFid: vmDetailResults.data.virtualMachine.moid]]
                         rtn.success = true
                     } else if(vmDetailResults.data.retry) {
                         doRetry = true

@@ -1,12 +1,17 @@
 package com.morpheusdata.rubrik.vmware.services
 
-
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.services.RestApiService
 import groovy.util.logging.Slf4j
 
 @Slf4j
 class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwarePlatformApiServiceInterface {
+	private MorpheusContext morpheusContext
+	RubrikVmwareRestApiService(MorpheusContext morpheusContext) {
+		super(morpheusContext)
+		this.morpheusContext = morpheusContext
+	}
 
 	ServiceResponse listVirtualMachines(Map authConfig) {
 		return internalGetApiRequest(authConfig, '/vmware/vm', 'virtualMachines')
@@ -24,6 +29,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 
 	ServiceResponse updateVirtualMachine(Map authConfig, String vmId, Map vmOpts, Map opts = [:]) {
 		ServiceResponse rtn = ServiceResponse.prepare()
+		log.info("UPDATE VIRTUAL MACHINE VM ID: ${vmId}")
 		try {
 			rtn = internalPatchApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine', vmOpts)
 		} catch(e) {
@@ -119,7 +125,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 			if(vmIdResponse.success && vmIdResponse.data.virtualMachine?.getAt(0)?.id) {
 				log.debug("Virtual Machine now available in Rubrik")
 				rtn.success = true
-				rtn.data = [virtualMachine: [id: vmIdResponse.data.virtualMachine?.getAt(0)?.id]]
+				rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.virtualMachine?.getAt(0)?.id]]
 				keepGoing = false
 			} else {
 				if(attempt == 0) {
@@ -127,7 +133,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 					// on first retry kick refresh vcenter servers
 					// if the vm isn't found in Rubrik the next refresh may not be for another 10 minutes,
 					// so kick off a manual refresh
-					new VcenterServerService().executeRefresh(backupProvider, authConfig)
+					new VcenterServerService(morpheusContext).executeRefresh(backupProvider, authConfig)
 				}
 				if(attempt < maxAttempts) {
 					sleep(60 * 1000)
@@ -163,7 +169,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 					def vmDetailResults = getRestoredVirtualMachine(authConfig, resultId)
 					log.debug("vmDetailResults: ${vmDetailResults}")
 					if(vmDetailResults.success && !vmDetailResults.data.retry) {
-						rtn.data = [virtualMachine: [id: vmDetailResults.data.virtualMachine.moid]]
+						rtn.data = [virtualMachine: [rubrikFid: vmDetailResults.data.virtualMachine.moid]]
 						rtn.success = true
 					} else if(vmDetailResults.data.retry) {
 						doRetry = true

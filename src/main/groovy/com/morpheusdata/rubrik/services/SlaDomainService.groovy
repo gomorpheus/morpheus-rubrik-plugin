@@ -1,5 +1,7 @@
 package com.morpheusdata.rubrik.services
 
+import com.morpheusdata.core.MorpheusContext
+import com.morpheusdata.core.library.MorpheusEnvironmentVariableTypeService
 import com.morpheusdata.core.util.SyncTask
 import com.morpheusdata.model.ReferenceData as ReferenceDataModel
 import com.morpheusdata.model.projection.ReferenceDataSyncProjection
@@ -13,10 +15,12 @@ class SlaDomainService {
 
 	private RubrikPlugin plugin
 	private ApiService apiService
+	private MorpheusContext morpheusContext
 
-	SlaDomainService(RubrikPlugin plugin) {
+	SlaDomainService(RubrikPlugin plugin, MorpheusContext morpheusContext) {
 		this.plugin = plugin
-		this.apiService = new ApiService()
+		this.apiService = new ApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
 	def executeCache(BackupProviderModel backupProviderModel, Map authConfig) {
@@ -24,12 +28,18 @@ class SlaDomainService {
 		try {
 			def objectCategory = getObjectCategory(backupProviderModel)
 			def slaDomainResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSlaDomains(authConfig)
+			log.debug("SLA DOMAIN RESULTS: ${slaDomainResults.data}")
 			if(slaDomainResults.success && slaDomainResults.data?.size() > 0) {
+				for(item in slaDomainResults.data.slaDomains) {
+					log.info("ITEM: ${item}")
+				}
 				List<Map> slaDomainList = slaDomainResults.data.slaDomains
+
+				log.info("SLA DOMAIN LIST: ${slaDomainList}")
 				Observable<ReferenceDataSyncProjection> referenceDataIdentityProjections = plugin.morpheus.async.referenceData.listByAccountIdAndCategory(backupProviderModel.account.id, objectCategory)
 				SyncTask<ReferenceDataSyncProjection, Map, ReferenceDataModel> syncTask = new SyncTask(referenceDataIdentityProjections, slaDomainList)
 				syncTask.addMatchFunction { ReferenceDataSyncProjection localItem, Map remoteItem ->
-					log.debug("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId == remoteItem.id}")
+					log.info("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId} ${localItem.name}")
 					return localItem.externalId == remoteItem.id
 				}.onDelete { List<ReferenceDataSyncProjection> deleteList ->
 					removeUnmatchedItems(deleteList)
@@ -71,10 +81,11 @@ class SlaDomainService {
 	}
 
 	private addMissingItems(List<Map> itemList, BackupProviderModel backupProviderModel) {
-		log.debug("addMissingItems: ${itemList}")
+		log.info("addMissingItems: ${itemList}")
 		String objectCategory = getObjectCategory(backupProviderModel)
 		def newItems = []
 		for(Map remoteItem in itemList) {
+			log.info("REMOTE ITEM: ${remoteItem}")
 			def add = new ReferenceDataModel(
 				account: backupProviderModel.account,
 				code: "${objectCategory}.${remoteItem.id}",
@@ -87,7 +98,7 @@ class SlaDomainService {
 			)
 			add.setConfigMap(remoteItem)
 			newItems << add
-			log.debug("Add SLA domain: ${add}")
+			log.info("Add SLA domain: ${add}")
 		}
 		plugin.morpheus.async.referenceData.bulkCreate(newItems).blockingGet()
 	}

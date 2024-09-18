@@ -1,10 +1,12 @@
 package com.morpheusdata.rubrik.vmware.services;
 
 import com.morpheusdata.response.ServiceResponse;
-import com.morpheusdata.rubrik.services.PlatformApiServiceInterface;
+import com.morpheusdata.rubrik.services.PlatformApiServiceInterface
+import groovy.util.logging.Slf4j;
 
 import java.util.Map;
 
+@Slf4j
 public interface RubrikVmwarePlatformApiServiceInterface extends PlatformApiServiceInterface {
     ServiceResponse listVirtualMachines(Map authConfig);
     ServiceResponse getVirtualMachine(Map authConfig, String vmId);
@@ -28,21 +30,28 @@ public interface RubrikVmwarePlatformApiServiceInterface extends PlatformApiServ
 
     default ServiceResponse getRestoredVirtualMachine(Map authConfig, String resourceId) {
         ServiceResponse rtn = ServiceResponse.prepare()
+        log.info("RESOURCE ID: ${resourceId}")
         try {
             def vmId
             if(resourceId.startsWith("VirtualMachine:::")) {
                 vmId = resourceId
             } else {
                 def mountDetailResults = getMount(authConfig, resourceId)
+                log.info("MOUNT DETAIL RESULTS: ${mountDetailResults}")
                 if(mountDetailResults.success == false) {
-                    rtn = [success: false, msg: "Mount not found", retry: true]
+                    rtn.success = false
+                    rtn.msg = "Mount not found"
+                    rtn.data?.retry = true
                 }
                 if(mountDetailResults.success) {
-                    vmId = mountDetailResults.data.mountedVmId
+                    vmId = mountDetailResults.data.mount.mountedVmId
                 }
             }
+            log.info("VM ID: ${vmId}")
             if(vmId) {
                 def vmDetailRequest = getVirtualMachine(authConfig, vmId)
+                log.info("VM DETAIL REQUEST: ${vmDetailRequest.success}")
+                log.info("VM DETAIL REQUEST: ${vmDetailRequest.data}")
                 if(vmDetailRequest.success) {
                     rtn.data = vmDetailRequest.data
                     rtn.success = true

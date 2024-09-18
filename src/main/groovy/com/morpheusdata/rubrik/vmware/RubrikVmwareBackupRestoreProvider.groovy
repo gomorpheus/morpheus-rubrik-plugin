@@ -1,5 +1,6 @@
-package com.morpheusdata.rubrik.vmware;
+package com.morpheusdata.rubrik.vmware
 
+import com.morpheusdata.core.MorpheusContext;
 import com.morpheusdata.core.Plugin;
 import com.morpheusdata.core.backup.BackupRestoreProvider
 import com.morpheusdata.core.backup.response.BackupRestoreResponse
@@ -28,12 +29,13 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 	static String LOCK_NAME = "backups.rubrik.restore";
 
 	Plugin plugin
-
 	RubrikVmwareApiService apiService
+	MorpheusContext morpheusContext
 
-	RubrikVmwareBackupRestoreProvider(Plugin plugin) {
+	RubrikVmwareBackupRestoreProvider(Plugin plugin, MorpheusContext morpheusContext) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiService = new RubrikVmwareApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
 	@Override
@@ -102,16 +104,18 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				def sourceWorkload = plugin.morpheus.async.workload.get(backupResult.containerId).blockingGet()
 				ComputeServer sourceServer = plugin.morpheus.services.computeServer.get(sourceWorkload.server.id)
 				Long sourceRootVolumeId = sourceServer?.volumes?.find { it.rootVolume }?.id
+				log.debug("source root volume id: ${sourceRootVolumeId}")
 				StorageVolume sourceRootVolume
 				DatastoreIdentity sourceDatastore
 				if(sourceRootVolumeId) {
 					sourceRootVolume = plugin.morpheus.services.storageVolume.get(sourceRootVolumeId)
+					log.info("SOURCE ROOT VOLUME: internal id = ${sourceRootVolume.internalId}, uniqueId = ${sourceRootVolume.uniqueId}, deviceDisplayName = ${sourceRootVolume.deviceDisplayName}, datastore = ${sourceRootVolume.datastore}, refId = ${sourceRootVolume.refId}, uuid = ${sourceRootVolume.uuid}")
 					sourceDatastore = sourceRootVolume?.datastore
 				}
 
 				def targetWorkloadId = backupRestore?.containerId
 				def targetWorkload = plugin.morpheus.async.workload.get(targetWorkloadId).blockingGet()
-
+				log.debug("source server: ${sourceServer}, source datastore: ${sourceDatastore}")
 				if(sourceServer && sourceDatastore) {
 					log.debug("Source server ext ID: ${sourceServer.externalId}")
 					//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, sourceServer.externalId, backupProvider)
@@ -120,12 +124,14 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					def vmDetailResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVirtualMachine(authConfig, vmId)
 					if(vmDetailResult.success) {
 						def hostId = vmDetailResult.data.virtualMachine.hostId
+						log.info("RESTORE BACKUP HOST ID: ${hostId}")
 						def vmHost = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getHost(authConfig, hostId)
+						log.info("VM HOST: ${vmHost}")
 						if(vmHost.success) {
-							log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId}")
+							log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId} - cloudId: ${sourceDatastore.cloudId}")
 							def datastore = vmHost.data.host.datastores.find {
 								log.debug("host datastore: ${it}")
-								return it.id.endsWith(sourceDatastore.externalId)
+								return it.name == sourceDatastore.name
 							}
 							if(datastore) {
 								def restoreOpts = [
@@ -139,8 +145,8 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 									String clusterId = backup.getConfigProperty("clusterId")
 									ServiceResponse restoreTaskResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForRestoredVirtualMachine(authConfig, clusterId, restoreResults.data.restoreRequest.id)
 									log.debug("wait for restore vm restults: ${restoreTaskResults}")
-									if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.id) {
-										rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.id]
+									if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.rubrikFid) {
+										rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.rubrikFid]
 										rtn.success = true
 									} else {
 										rtn.success = false
@@ -186,7 +192,10 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				// restore to the current virtual machine
 				//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
 				String vmId = backup.getConfigProperty("rubrikFid")
+				log.info("BACKUP RESULT: ${backupResult}")
+
 				ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmId)
+				log.info("RESTORE RESULTS: ${restoreResults}")
 				if(restoreResults.success) {
 					rtn.success = true
 					rtn.data.updates = true
@@ -234,8 +243,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 						log.debug("refreshBackupRestoreResult resultLink: $resultLink")
 						if(resultLink) {
 							def restoreResultId = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).extractUuid(resultLink.href)
-
+							log.info("RESTORE RESULT ID: ${restoreResultId}")
 							def vmDetailResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getRestoredVirtualMachine(authConfig, restoreResultId)
+							log.info("VM DETAIL RESULTS: ${vmDetailResults.success}, ${vmDetailResults.data}")
 							if(vmDetailResults.success && !vmDetailResults.data.retry) {
 								rtn.data.backupRestore.externalId = vmDetailResults.data.moid
 								// might need to get the VM info from the restore result links

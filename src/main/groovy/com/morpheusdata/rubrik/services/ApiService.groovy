@@ -6,8 +6,9 @@ class ApiService {
     private RestApiService restApiService
     private GqlApiService gqlApiService
     private MorpheusContext morpheusContext
-    ApiService() {
-        this.restApiService = new RestApiService()
+
+    ApiService(MorpheusContext morpheusContext) {
+        this.restApiService = new RestApiService(morpheusContext)
         this.gqlApiService = new GqlApiService(morpheusContext)
         this.morpheusContext = morpheusContext
     }

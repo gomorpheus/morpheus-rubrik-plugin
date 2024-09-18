@@ -1,6 +1,6 @@
 package com.morpheusdata.rubrik.vmware.services
 
-
+import com.morpheusdata.core.MorpheusContext
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.rubrik.RubrikPlugin
@@ -11,14 +11,17 @@ class VcenterServerService {
 
 	private RubrikPlugin plugin
 	private RubrikVmwareApiService apiService
+	private MorpheusContext morpheusContext
 
-	VcenterServerService() {
-		this.apiService = new RubrikVmwareApiService()
+	VcenterServerService(MorpheusContext morpheusContext) {
+		this.apiService = new RubrikVmwareApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
-	VcenterServerService(RubrikPlugin plugin) {
+	VcenterServerService(RubrikPlugin plugin, MorpheusContext morpheusContext) {
 		this.plugin = plugin
-		this.apiService = new RubrikVmwareApiService()
+		this.apiService = new RubrikVmwareApiService(morpheusContext)
+		this.morpheusContext = morpheusContext
 	}
 
 	def executeRefresh(BackupProvider backupProviderModel, Map authConfig) {
