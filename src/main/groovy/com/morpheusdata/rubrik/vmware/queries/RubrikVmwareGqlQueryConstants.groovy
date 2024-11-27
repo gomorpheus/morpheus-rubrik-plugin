@@ -28,6 +28,7 @@ class RubrikVmwareGqlQueryConstants {
         query getVirtualMachine (\$fid: UUID!) {
             vSphereDetailData: vSphereVmNew(fid: \$fid) {
                 id
+                cdmId
                 name
                 effectiveSlaDomain {
                     id
@@ -45,6 +46,17 @@ class RubrikVmwareGqlQueryConstants {
                     fid
                     name
                     objectType
+                }
+                snapshotConnection {
+                    nodes {
+                        id
+                        cdmId
+                        cluster {
+                            id
+                            name
+                        }
+                        isOnDemandSnapshot
+                    }
                 }
             }
         }

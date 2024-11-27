@@ -108,7 +108,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		optionTypes << new OptionType(
 			code:"backupProviderType.${this.getCode()}.platformType", inputType:OptionType.InputType.SELECT, name:'platformType', category:"backupProviderType.${this.getCode()}",
 			fieldName:'platformType', fieldCode: 'gomorpheus.help.rubrik.platformType', fieldLabel:'Platform', fieldContext:'config', fieldGroup:'default', optionSource:'rubrikPlatformTypes',
-			required:false, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			required:false, enabled:true, editable:false, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
 			displayOrder:5, fieldClass:null, noSelection: 'CDM'
 		)
 		optionTypes << new OptionType(

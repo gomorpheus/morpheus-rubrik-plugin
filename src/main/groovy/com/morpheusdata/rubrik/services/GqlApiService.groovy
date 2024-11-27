@@ -37,9 +37,6 @@ class GqlApiService implements PlatformApiServiceInterface {
 			log.error("could not load credentials: ${e}")
 		}
 
-
-		//}
-
 		def rtn = [
 				apiUrl: backupProviderModel.serviceUrl,
 				apiVersion: 'v1',
@@ -75,15 +72,17 @@ class GqlApiService implements PlatformApiServiceInterface {
 	@Override
 	ServiceResponse getToken(Map authConfig) {
 		def rtn = ServiceResponse.prepare()
+		rtn.data = [:]
 		def requestToken = true
 		log.info("IN GET TOKEN 74")
+		log.info("AUTHCONFIG: ${authConfig}")
 		if(authConfig.token) {
 			log.info("HAS TOKEN: ${authConfig.token}")
-			log.info("EXPIRES: ${authConfig.expires}")
+			log.info("EXPIRES: ${authConfig.expires.time}")
 			if(authConfig.expires) {
 				// check if token in authConfig is valid
 				def checkDate = new Date()
-				log.info("AUTHCONFIG EXPIRES: ${authConfig.expires}")
+				log.info("AUTHCONFIG EXPIRES: ${authConfig.expires.time}")
 				log.info("CHECKDATE: ${checkDate}")
 				def tokenValid = ((checkDate.time + tokenBuffer) <= authConfig.expires.time)
 				log.info("TOKEN VALID: ${authConfig.expires.time}, ${tokenValid}")
@@ -104,10 +103,12 @@ class GqlApiService implements PlatformApiServiceInterface {
 		if(requestToken == true) {
 			log.info("REQUESTING TOKEN 99")
 			def cachedToken = getCachedToken(authConfig.username)
+			log.info("CACHED TOKEN 101: ${cachedToken}")
 			if(cachedToken?.token) {
 				rtn.success = true
 				rtn.data.token = cachedToken.token
 				rtn.data.expires = cachedToken.expires
+				log.info("RTN.DATA: ${rtn.data}")
 			} else {
 				log.info("API CALL TO REQUEST TOKEN 108")
 				String apiUrl = authConfig.apiUrl.toString()
@@ -127,7 +128,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 				rtn.success = results?.success && results?.error != true
 				if(rtn.success) {
 					rtn.data.token = results?.data.access_token
-					rtn.data.expires = new Date(new Date().time + results?.data.expires_in)
+					rtn.data.expires = new Date(System.currentTimeMillis() + (results?.data.expires_in.toLong() * 1000l))
 					log.info("TOKEN: ${rtn.data.token}")
 					log.info("TOKEN EXPIRES: ${rtn.data.expires}")
 				}
@@ -135,6 +136,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 
 			// update authConfig token
 			if(rtn.success) {
+				log.debug("Successfully retrieved a new api token that expires: ${rtn.data.expires}")
 				authConfig.token = rtn.data.token
 				authConfig.expires = rtn.data.expires
 				cacheToken(authConfig.username, authConfig)
@@ -167,7 +169,6 @@ class GqlApiService implements PlatformApiServiceInterface {
 				}
 				def cachedToken = tokens[cacheKey]
 				log.info("tokens: ${tokens}")
-				log.info("CACHED TOKEN TYPE: ${cachedToken?.getClass()}")
 				log.info("GET CACHED TOKEN EXPIRES: ${cachedToken?.expires}")
 				if(cachedToken) {
 					if(cachedToken.expires > new Date(new Date().time + (10l*60l*1000l))) {
@@ -270,7 +271,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 			def tokenResults = getToken(authConfig)
 			log.info("API Token results : ${tokenResults}")
 			if(tokenResults.success == true) {
-				authConfig.token = tokenResults.data.access_token
+				authConfig.token = tokenResults.data.token
 				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, authConfig.gqlPath)
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}")
 				Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)

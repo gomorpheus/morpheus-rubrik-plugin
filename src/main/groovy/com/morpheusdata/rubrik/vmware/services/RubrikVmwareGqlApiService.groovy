@@ -21,10 +21,20 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "operationName": "listVirtualMachines"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload,null, headers)
+        log.info("LIST VIRTUAL MACHINE RTN: ${rtn}")
+        if(rtn.success) {
+            rtn.data.virtualMachines = rtn.data.vSphereVmNewConnection
+        }
+        return rtn
     }
 
     ServiceResponse getVirtualMachine(Map authConfig, String vmId) {
+        if(vmId.startsWith("VirtualMachine:::")) {
+            String cdmId = vmId.split(":::")[1]
+            vmId = getVirtualMachineFidFromCdmId(authConfig, cdmId)
+        }
+
         String query = RubrikVmwareGqlQueryConstants.getVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
@@ -49,6 +59,17 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         }
         log.info("GET VIRTUAL MACHINE RTN: ${rtn}")
         return rtn
+    }
+
+    String getVirtualMachineFidFromCdmId(Map authConfig, String vmCdmId) {
+        def vms = listVirtualMachines(authConfig).data.virtualMachines
+        def vm = vms.find { node ->
+            node.cdmId == vmCdmId
+        }
+
+        log.info("VM CDM ID: ${vmCdmId}")
+        log.info("VM FID: ${vm.id}")
+        return vm.id
     }
 
     ServiceResponse getVirtualMachineByMoid(Map authConfig, String vmExternalId, String hostExternalId) {
@@ -161,11 +182,14 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
 
     ServiceResponse restoreSnapshotToVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
         String query = RubrikVmwareGqlQueryConstants.restoreSnapshotToVirtualMachine.replaceAll("[\\r\\n]", "")
+        String snapshotFid = getSnapshotFidFromCdmId(authConfig, vmId, snapshotId)
+        log.info("SNAPSHOT ID: ${snapshotId}")
+        //log.info("SNAPSHOT FID: ${snapshotFid}")
         def payload = [
                 "query": query,
                 "operationName": "restoreSnapshotToVirtualMachine",
                 "variables": [
-                        "snapshotId": snapshotId,
+                        "snapshotId": snapshotFid,
                         "id": vmId,
                         "disableNetwork": false,
                         "removeNetworkDevices": false,
@@ -187,12 +211,15 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
 
     ServiceResponse restoreSnapshotToNewVirtualMachine(Map authConfig, String snapshotId, String vmId, Map opts=[:]) {
         String query = RubrikVmwareGqlQueryConstants.restoreSnapshotToNewVirtualMachine.replaceAll("[\\r\\n]", "")
+        String snapshotFid = getSnapshotFidFromCdmId(authConfig, vmId, snapshotId)
+        log.info("SNAPSHOT ID: ${snapshotId}")
+        log.info("SNAPSHOT FID: ${snapshotFid}")
         def payload = [
                 "query": query,
                 "operationName": "restoreSnapshotToNewVirtualMachine",
                 "variables": [
                         "id": vmId,
-                        "snapshotId": snapshotId,
+                        "snapshotId": snapshotFid,
                         "hostId": opts.hostId,
                         "vmName": opts.vmName,
                         "storageLocationId": opts.datastoreId,
@@ -202,7 +229,31 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         ]
 
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'vsphereVmExportSnapshotV3', payload,null, headers)
+        ServiceResponse rtn = internalPostApiRequest(authConfig, null, 'vsphereVmExportSnapshotV3', payload,null, headers)
+        if (rtn.success) {
+            rtn.data.restoreRequest = rtn.data.vsphereVmExportSnapshotV3?[0]
+        }
+
+        log.info("RESTORE SNAPSHOT TO NEW VIRTUAL MACHINE RTN: ${rtn}")
+        return rtn
+    }
+
+    String getSnapshotFidFromCdmId(Map authConfig, String vmId, String snapshotCdmId) {
+        ServiceResponse vm = getVirtualMachine(authConfig, vmId)
+        def snapshots = vm.data.virtualMachine.snapshotConnection.nodes
+        log.info("SNAPSHOTS: ${snapshots}")
+        def snapshot = snapshots.find { node ->
+            node.cdmId == snapshotCdmId
+        }
+
+        log.info("VM ID: ${vmId}")
+        log.info("SNAPSHOT CDM ID: ${snapshotCdmId}")
+        if(snapshot) {
+            log.info("SNAPSHOT FID: ${snapshot.id}")
+            return snapshot.id
+        } else {
+            return snapshotCdmId
+        }
     }
 
     ServiceResponse getMount(Map authConfig, String mountId) {
@@ -405,7 +456,10 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                     def vmDetailResults = getRestoredVirtualMachine(authConfig, resultId)
                     log.debug("vmDetailResults: ${vmDetailResults}")
                     if(vmDetailResults.success && !vmDetailResults.data.retry) {
-                        rtn.data = [virtualMachine: [rubrikFid: vmDetailResults.data.virtualMachine.moid]]
+                        String cdmId = vmDetailResults.data.vSphereDetailData?[0].cdmId
+                        String moid = "vm-" + cdmId?.split("vm-")[1]
+                        log.info("EXTRACTED MOID: ${moid}")
+                        rtn.data = [virtualMachine: [ id: moid ]]
                         rtn.success = true
                     } else if(vmDetailResults.data.retry) {
                         doRetry = true

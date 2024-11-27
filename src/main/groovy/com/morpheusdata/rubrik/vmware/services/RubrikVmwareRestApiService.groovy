@@ -169,7 +169,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 					def vmDetailResults = getRestoredVirtualMachine(authConfig, resultId)
 					log.debug("vmDetailResults: ${vmDetailResults}")
 					if(vmDetailResults.success && !vmDetailResults.data.retry) {
-						rtn.data = [virtualMachine: [rubrikFid: vmDetailResults.data.virtualMachine.moid]]
+						rtn.data = [virtualMachine: [id: vmDetailResults.data.virtualMachine.moid]]
 						rtn.success = true
 					} else if(vmDetailResults.data.retry) {
 						doRetry = true

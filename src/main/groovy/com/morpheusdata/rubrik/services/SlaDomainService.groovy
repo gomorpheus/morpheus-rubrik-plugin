@@ -29,7 +29,7 @@ class SlaDomainService {
 			def objectCategory = getObjectCategory(backupProviderModel)
 			def slaDomainResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSlaDomains(authConfig)
 			log.debug("SLA DOMAIN RESULTS: ${slaDomainResults.data}")
-			if(slaDomainResults.success && slaDomainResults.data?.size() > 0) {
+			if(slaDomainResults.success && slaDomainResults.data?.slaDomains?.size() > 0) {
 				for(item in slaDomainResults.data.slaDomains) {
 					log.info("ITEM: ${item}")
 				}

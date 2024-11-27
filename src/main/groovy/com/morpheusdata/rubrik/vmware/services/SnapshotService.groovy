@@ -55,7 +55,7 @@ class SnapshotService {
 					ServiceResponse snapshotListResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSnapshotsForVirtualMachine(authConfig, backupServerDto.backup.getConfigProperty("rubrikFid"))
 				    log.info("SNAPSHOT LIST RESULTS: ${snapshotListResults}")
 					List<Map> snapshotList = []
-					if(snapshotListResults.success) {
+					if(snapshotListResults.success && snapshotListResults?.data?.snapshots?.size() > 0) {
 						snapshotList = snapshotListResults.data.snapshots
 					} else {
 						def errorMsg = "Failed to load snapshots for sync"

@@ -145,8 +145,8 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 									String clusterId = backup.getConfigProperty("clusterId")
 									ServiceResponse restoreTaskResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForRestoredVirtualMachine(authConfig, clusterId, restoreResults.data.restoreRequest.id)
 									log.debug("wait for restore vm restults: ${restoreTaskResults}")
-									if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.rubrikFid) {
-										rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.rubrikFid]
+									if(restoreTaskResults.success && restoreTaskResults.data.virtualMachine?.id) {
+										rtn.data.restoreConfig = [cloneVmId: restoreTaskResults.data.virtualMachine?.id]
 										rtn.success = true
 									} else {
 										rtn.success = false
