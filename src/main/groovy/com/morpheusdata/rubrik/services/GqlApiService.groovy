@@ -21,7 +21,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 		this.morpheusContext = morpheusContext
 	}
 
-	static tokenBuffer = 43200l * 10l
+	static tokenBuffer = 1000l * 10l
 	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
 		log.info("BACKUPPROVIDERMODEL: ${backupProviderModel.uuid}")
@@ -79,23 +79,22 @@ class GqlApiService implements PlatformApiServiceInterface {
 		if(authConfig.token) {
 			log.info("HAS TOKEN: ${authConfig.token}")
 			log.info("EXPIRES: ${authConfig.expires.time}")
-			if(authConfig.expires) {
+			if (authConfig.expires) {
 				// check if token in authConfig is valid
-				def checkDate = new Date()
-				log.info("AUTHCONFIG EXPIRES: ${authConfig.expires.time}")
-				log.info("CHECKDATE: ${checkDate}")
-				def tokenValid = ((checkDate.time + tokenBuffer) <= authConfig.expires.time)
-				log.info("TOKEN VALID: ${authConfig.expires.time}, ${tokenValid}")
-				if (!tokenValid) {
+
+				if (authConfig.expires && authConfig.expires.time < (System.currentTimeMillis() - tokenBuffer)) {
+					log.info("api access token is expired, expires: ${authConfig.expires}, re-authenticating now to get a new token")
 					requestToken = true
 				} else {
 					requestToken = false
 					rtn.success = true
 					rtn.data.token = authConfig.token
-					rtn.data.expires = authConfig.expires
 				}
 			} else {
-				requestToken = true
+				log.info("api access token is valid, expires: ${authConfig.expires}, using existing token")
+				requestToken = false
+				rtn.success = true
+				rtn.data.token = authConfig.token
 			}
 		}
 
@@ -108,7 +107,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 				rtn.success = true
 				rtn.data.token = cachedToken.token
 				rtn.data.expires = cachedToken.expires
-				log.info("RTN.DATA: ${rtn.data}")
+				log.info("RETRIEVED CACHED TOKEN: ${rtn.data}")
 			} else {
 				log.info("API CALL TO REQUEST TOKEN 108")
 				String apiUrl = authConfig.apiUrl.toString()
@@ -124,14 +123,13 @@ class GqlApiService implements PlatformApiServiceInterface {
 				HttpApiClient client = new HttpApiClient()
 				ServiceResponse results = client.callJsonApi(apiUrl, apiPath, username, password, requestOpts, method)
 				log.info("results: ${results}")
-				rtn = results
 				rtn.success = results?.success && results?.error != true
-				if(rtn.success) {
+				if(rtn.success == true) {
+					rtn = results
 					rtn.data.token = results?.data.access_token
 					rtn.data.expires = new Date(System.currentTimeMillis() + (results?.data.expires_in.toLong() * 1000l))
-					log.info("TOKEN: ${rtn.data.token}")
-					log.info("TOKEN EXPIRES: ${rtn.data.expires}")
 				}
+				log.info("RETRIEVED FRESH API TOKEN")
 			}
 
 			// update authConfig token
@@ -171,7 +169,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 				log.info("tokens: ${tokens}")
 				log.info("GET CACHED TOKEN EXPIRES: ${cachedToken?.expires}")
 				if(cachedToken) {
-					if(cachedToken.expires > new Date(new Date().time + (10l*60l*1000l))) {
+					if(cachedToken.expires > new Date(System.currentTimeMillis() + (10l*60l*1000l))) {
 						rtn = cachedToken
 					}
 
@@ -208,12 +206,14 @@ class GqlApiService implements PlatformApiServiceInterface {
 				def expiredKeys = []
 				for (cacheKey in tokens.keySet()) {
 					def tokenExpires = tokens[cacheKey]?.expires
-					log.info("REAP EXPIRED TOKEN EXPIRES: ${tokenExpires}")
-					if(tokenExpires && tokenExpires < new Date(new Date().time - (10l*60l*1000l))) {
+					log.info("CHECKING TOKEN EXPIRES FOR REAP: ${tokenExpires}")
+					if(tokenExpires && tokenExpires < new Date(System.currentTimeMillis() - (10l*60l*1000l))) {
+						log.info("REAPING TOKEN THAT EXPIRES AT: ${tokenExpires}")
 						expiredKeys << cacheKey
 					}
 				}
 				expiredKeys.each { cacheKey ->
+					log.info("REAPING TOKEN: ${cacheKey}")
 					tokens.remove(cacheKey)
 				}
 			}
