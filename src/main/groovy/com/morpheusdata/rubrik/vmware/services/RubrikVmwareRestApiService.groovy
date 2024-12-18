@@ -29,7 +29,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 
 	ServiceResponse updateVirtualMachine(Map authConfig, String vmId, Map vmOpts, Map opts = [:]) {
 		ServiceResponse rtn = ServiceResponse.prepare()
-		log.info("UPDATE VIRTUAL MACHINE VM ID: ${vmId}")
+		log.debug("UPDATE VIRTUAL MACHINE VM ID: ${vmId}")
 		try {
 			rtn = internalPatchApiRequest(authConfig, '/vmware/vm/' + vmId, 'virtualMachine', vmOpts)
 		} catch(e) {

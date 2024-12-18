@@ -70,18 +70,18 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				if(morphServer) {
 					// wait for the vm details to show up in the rubrik api. This is most critical after the initial provision or after a clone.
 					ServiceResponse vmIdResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, morphServer.externalId, morphServer.parentServer.externalId, backupProvider)
-					log.info("vmIdResult: ${vmIdResult.data}")
+					log.debug("vmIdResult: ${vmIdResult.data}")
 					if(vmIdResult.success) {
-						log.info("VMID RESULT DATA 61: ${vmIdResult.data}")
+						log.debug("VMID RESULT DATA 61: ${vmIdResult.data}")
 						if (vmIdResult.data.virtualMachine?.clusterId) {
-							log.info("VMIDRESULT: ${vmIdResult.data}")
+							log.debug("VMIDRESULT: ${vmIdResult.data}")
 							backup.setConfigProperty("clusterId", vmIdResult.data.virtualMachine.clusterId)
 							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
 						} else if (vmIdResult.data.virtualMachine?.rubrikFid) {
 							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
 						}
-						log.info("BACKUP CLUSTER ID: ${backup.getConfigProperty("clusterId")}")
-						log.info("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
+						log.debug("BACKUP CLUSTER ID: ${backup.getConfigProperty("clusterId")}")
+						log.debug("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
 
 						// if we find the id, update the vm with the sla domain
 						log.debug("morphServer.externalId: ${morphServer.externalId}, slaDomainID: ${slaDomainExternalId}")
@@ -214,8 +214,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				}
 
 				String vmId = backup.getConfigProperty("rubrikFid")
-				log.info("EXECUTE BACKUP: ${backup.config}")
-				log.info("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
+				log.debug("EXECUTE BACKUP: ${backup.config}")
+				log.debug("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
 				ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId)
 				log.debug("executeBackup requestResult: {}", backupRequestResult)
 				if(backupRequestResult.success == true) {
@@ -261,16 +261,16 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			String requestId = backupResult.getConfigProperty('backupRequestId')
 			if(requestId) {
 				ServiceResponse requestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVmTaskRequest(authConfig, clusterId, requestId)
-				log.info("REQUEST RESULT: ${requestResult}")
+				log.debug("REQUEST RESULT: ${requestResult}")
 
 				Map requestDetail = requestResult.data.request
-				log.info("REQUEST DETAIL: ${requestDetail}")
+				log.debug("REQUEST DETAIL: ${requestDetail}")
 				if(!snapshotId && requestResult.success && requestDetail.status == RubrikBackupStatusUtility.STATUS_SUCCEEDED) {
 					log.debug("snapshot created successfully, getting snapshot info for backup result")
 					Map snapshotLink = requestDetail.links.find { it.rel == "result" }
 					if(snapshotLink) {
 						snapshotId = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).extractUuid(snapshotLink.href)
-						log.info("SNAPSHOT ID: ${snapshotId}")
+						log.debug("SNAPSHOT ID: ${snapshotId}")
 					}
 				}
 
@@ -309,7 +309,7 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 						}
 					}
-					log.info("START TIME: ${requestDetail.startTime}, END TIME: ${requestDetail.endTime}")
+					log.debug("START TIME: ${requestDetail.startTime}, END TIME: ${requestDetail.endTime}")
 					rtn.data.updates = doUpdate
 					rtn.success = true
 
@@ -348,7 +348,6 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 
 	// this is probably for syncing in snapshots we don't know about yet.
 	// private applyBackupResultUpdates(BackupResult backupResult, Backup backup, Map updates) {
-	// 	log.info("RESULT STATUS: ${updates.result}")
 	// 	def status = updates.result ? RubrikBackupStatusUtility.getBackupStatus(updates.result) : MorpheusBackupStatusUtility.IN_PROGRESS
 	// 	long sizeInMb = (updates.totalSize ?: 0) / 1048576
 	// 	updates.backupSetId = updates.backupSetId ?: MoprheusBackupResultUtility.createBackupResultSetId()

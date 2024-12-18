@@ -31,15 +31,15 @@ class SlaDomainService {
 			log.debug("SLA DOMAIN RESULTS: ${slaDomainResults.data}")
 			if(slaDomainResults.success && slaDomainResults.data?.slaDomains?.size() > 0) {
 				for(item in slaDomainResults.data.slaDomains) {
-					log.info("ITEM: ${item}")
+					log.debug("ITEM: ${item}")
 				}
 				List<Map> slaDomainList = slaDomainResults.data.slaDomains
 
-				log.info("SLA DOMAIN LIST: ${slaDomainList}")
+				log.debug("SLA DOMAIN LIST: ${slaDomainList}")
 				Observable<ReferenceDataSyncProjection> referenceDataIdentityProjections = plugin.morpheus.async.referenceData.listByAccountIdAndCategory(backupProviderModel.account.id, objectCategory)
 				SyncTask<ReferenceDataSyncProjection, Map, ReferenceDataModel> syncTask = new SyncTask(referenceDataIdentityProjections, slaDomainList)
 				syncTask.addMatchFunction { ReferenceDataSyncProjection localItem, Map remoteItem ->
-					log.info("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId} ${localItem.name}")
+					log.debug("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId} ${localItem.name}")
 					return localItem.externalId == remoteItem.id
 				}.onDelete { List<ReferenceDataSyncProjection> deleteList ->
 					removeUnmatchedItems(deleteList)
@@ -81,11 +81,11 @@ class SlaDomainService {
 	}
 
 	private addMissingItems(List<Map> itemList, BackupProviderModel backupProviderModel) {
-		log.info("addMissingItems: ${itemList}")
+		log.debug("addMissingItems: ${itemList}")
 		String objectCategory = getObjectCategory(backupProviderModel)
 		def newItems = []
 		for(Map remoteItem in itemList) {
-			log.info("REMOTE ITEM: ${remoteItem}")
+			log.debug("REMOTE ITEM: ${remoteItem}")
 			def add = new ReferenceDataModel(
 				account: backupProviderModel.account,
 				code: "${objectCategory}.${remoteItem.id}",
@@ -98,7 +98,7 @@ class SlaDomainService {
 			)
 			add.setConfigMap(remoteItem)
 			newItems << add
-			log.info("Add SLA domain: ${add}")
+			log.debug("Add SLA domain: ${add}")
 		}
 		plugin.morpheus.async.referenceData.bulkCreate(newItems).blockingGet()
 	}

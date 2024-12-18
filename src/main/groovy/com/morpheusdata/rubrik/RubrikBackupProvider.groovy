@@ -223,11 +223,8 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 			def localCredentials = (backupProviderModel.credentialData?.type ?: 'local') == 'local'
 
-			log.info("backupProviderModel.username: ${backupProviderModel.getConfigProperty("username")}")
-			log.info("backupProviderModel.password: ${backupProviderModel.getConfigProperty("password")}")
-			log.info("backupProviderModel.credentialData: ${backupProviderModel.credentialData}")
-
 			def platformType = (backupProviderModel.getConfigProperty("platformType") == "RSC") ? "RSC" : "CDM"
+			log.debug("platformType: {}", platformType)
 			if(((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password)) && platformType == 'CDM') {
 				rtn.msg = rtn.msg ?: 'Enter an api token'
 				rtn.errors.serviceToken = 'Enter an api token'

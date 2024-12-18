@@ -92,7 +92,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 	@Override
 	ServiceResponse restoreBackup(BackupRestore backupRestore, BackupResult backupResult, Backup backup, Map opts) {
 		ServiceResponse rtn = ServiceResponse.prepare(new BackupRestoreResponse(backupRestore))
-		log.info("Restoring backupResult {} - opts: {}", backupResult, opts)
+		log.debug("Restoring backupResult {} - opts: {}", backupResult, opts)
 		try {
 			BackupProvider backupProvider = backup.backupProvider
 			def authConfig = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getAuthConfig(backupProvider)
@@ -109,7 +109,7 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				DatastoreIdentity sourceDatastore
 				if(sourceRootVolumeId) {
 					sourceRootVolume = plugin.morpheus.services.storageVolume.get(sourceRootVolumeId)
-					log.info("SOURCE ROOT VOLUME: internal id = ${sourceRootVolume.internalId}, uniqueId = ${sourceRootVolume.uniqueId}, deviceDisplayName = ${sourceRootVolume.deviceDisplayName}, datastore = ${sourceRootVolume.datastore}, refId = ${sourceRootVolume.refId}, uuid = ${sourceRootVolume.uuid}")
+					log.debug("SOURCE ROOT VOLUME: internal id = ${sourceRootVolume.internalId}, uniqueId = ${sourceRootVolume.uniqueId}, deviceDisplayName = ${sourceRootVolume.deviceDisplayName}, datastore = ${sourceRootVolume.datastore}, refId = ${sourceRootVolume.refId}, uuid = ${sourceRootVolume.uuid}")
 					sourceDatastore = sourceRootVolume?.datastore
 				}
 
@@ -124,9 +124,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 					def vmDetailResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getVirtualMachine(authConfig, vmId)
 					if(vmDetailResult.success) {
 						def hostId = vmDetailResult.data.virtualMachine.hostId
-						log.info("RESTORE BACKUP HOST ID: ${hostId}")
+						log.debug("RESTORE BACKUP HOST ID: ${hostId}")
 						def vmHost = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getHost(authConfig, hostId)
-						log.info("VM HOST: ${vmHost}")
+						log.debug("VM HOST: ${vmHost}")
 						if(vmHost.success) {
 							log.debug("Source datastore, name: ${sourceDatastore.name} - id: ${sourceDatastore.id} - externalId: ${sourceDatastore.externalId} - cloudId: ${sourceDatastore.cloudId}")
 							def datastore = vmHost.data.host.datastores.find {
@@ -192,10 +192,10 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 				// restore to the current virtual machine
 				//ServiceResponse vmIdResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).waitForVirtualMachine(authConfig, backupResult.externalId, backupProvider)
 				String vmId = backup.getConfigProperty("rubrikFid")
-				log.info("BACKUP RESULT: ${backupResult}")
+				log.debug("BACKUP RESULT: ${backupResult}")
 
 				ServiceResponse restoreResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).restoreSnapshotToVirtualMachine(authConfig, backupResult.externalId, vmId)
-				log.info("RESTORE RESULTS: ${restoreResults}")
+				log.debug("RESTORE RESULTS: ${restoreResults}")
 				if(restoreResults.success) {
 					rtn.success = true
 					rtn.data.updates = true
@@ -243,9 +243,9 @@ class RubrikVmwareBackupRestoreProvider implements BackupRestoreProvider {
 						log.debug("refreshBackupRestoreResult resultLink: $resultLink")
 						if(resultLink) {
 							def restoreResultId = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).extractUuid(resultLink.href)
-							log.info("RESTORE RESULT ID: ${restoreResultId}")
+							log.debug("RESTORE RESULT ID: ${restoreResultId}")
 							def vmDetailResults = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).getRestoredVirtualMachine(authConfig, restoreResultId)
-							log.info("VM DETAIL RESULTS: ${vmDetailResults.success}, ${vmDetailResults.data}")
+							log.debug("VM DETAIL RESULTS: ${vmDetailResults.success}, ${vmDetailResults.data}")
 							if(vmDetailResults.success && !vmDetailResults.data.retry) {
 								rtn.data.backupRestore.externalId = vmDetailResults.data.moid
 								// might need to get the VM info from the restore result links

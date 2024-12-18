@@ -30,14 +30,14 @@ public interface RubrikVmwarePlatformApiServiceInterface extends PlatformApiServ
 
     default ServiceResponse getRestoredVirtualMachine(Map authConfig, String resourceId) {
         ServiceResponse rtn = ServiceResponse.prepare()
-        log.info("RESOURCE ID: ${resourceId}")
+        log.debug("RESOURCE ID: ${resourceId}")
         try {
             def vmId
             if(resourceId.startsWith("VirtualMachine:::")) {
                 vmId = resourceId
             } else {
                 def mountDetailResults = getMount(authConfig, resourceId)
-                log.info("MOUNT DETAIL RESULTS: ${mountDetailResults}")
+                log.debug("MOUNT DETAIL RESULTS: ${mountDetailResults}")
                 if(mountDetailResults.success == false) {
                     rtn.success = false
                     rtn.msg = "Mount not found"
@@ -47,11 +47,11 @@ public interface RubrikVmwarePlatformApiServiceInterface extends PlatformApiServ
                     vmId = mountDetailResults.data.mount.mountedVmId
                 }
             }
-            log.info("VM ID: ${vmId}")
+            log.debug("VM ID: ${vmId}")
             if(vmId) {
                 def vmDetailRequest = getVirtualMachine(authConfig, vmId)
-                log.info("VM DETAIL REQUEST: ${vmDetailRequest.success}")
-                log.info("VM DETAIL REQUEST: ${vmDetailRequest.data}")
+                log.debug("VM DETAIL REQUEST: ${vmDetailRequest.success}")
+                log.debug("VM DETAIL REQUEST: ${vmDetailRequest.data}")
                 if(vmDetailRequest.success) {
                     rtn.data = vmDetailRequest.data
                     rtn.success = true

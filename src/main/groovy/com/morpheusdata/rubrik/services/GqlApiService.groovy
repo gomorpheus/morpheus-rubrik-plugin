@@ -24,13 +24,13 @@ class GqlApiService implements PlatformApiServiceInterface {
 	static tokenBuffer = 1000l * 10l
 	@Override
 	Map getAuthConfig(BackupProvider backupProviderModel) {
-		log.info("BACKUPPROVIDERMODEL: ${backupProviderModel.uuid}")
+		log.debug("BACKUPPROVIDERMODEL: ${backupProviderModel.uuid}")
 		try {
 			if(!backupProviderModel.credentialLoaded && backupProviderModel.id) {
 				AccountCredential accountCredential = morpheusContext.services.accountCredential.loadCredentials(backupProviderModel)
 				backupProviderModel.credentialLoaded = true
 				backupProviderModel.credentialData = accountCredential?.data
-				log.info("ACCOUNT CREDS AUTHCONFIG: ${accountCredential}")
+				log.debug("ACCOUNT CREDS AUTHCONFIG: ${accountCredential}")
 			}
 
 		} catch (e) {
@@ -46,26 +46,11 @@ class GqlApiService implements PlatformApiServiceInterface {
 				basePath: '/api'
 		]
 
-		log.info("CREDENTIAL DATA: ${backupProviderModel.credentialData}")
 		// username is client_id, password is client_secret, service token is access token
 
 		rtn.username = backupProviderModel.credentialData?.username ?: backupProviderModel.getConfigProperty("username")
 		rtn.password = backupProviderModel.credentialData?.password ?: backupProviderModel.getConfigProperty("password")
-//
-//		if(localCredentials && backupProviderModel.getConfigProperty("username") && backupProviderModel.getConfigProperty("password")) {
-//			log.info("LOCAL CREDENTIALS")
-//			rtn.username = backupProviderModel.getConfigProperty("username")
-//			rtn.password = backupProviderModel.getConfigProperty("password")
-//		}
-//
-//		if(!localCredentials && backupProviderModel.credentialData.username && backupProviderModel.credentialData.password) {
-//			log.info("STORED CREDENTIALS")
-//			rtn.username = backupProviderModel.credentialData.username
-//			rtn.password = backupProviderModel.credentialData.password
-//		}
 
-
-		log.info("getAuthConfig: ${rtn}")
 		return rtn
 	}
 
@@ -74,16 +59,16 @@ class GqlApiService implements PlatformApiServiceInterface {
 		def rtn = ServiceResponse.prepare()
 		rtn.data = [:]
 		def requestToken = true
-		log.info("IN GET TOKEN 74")
-		log.info("AUTHCONFIG: ${authConfig}")
+		log.debug("IN GET TOKEN 74")
+		log.debug("AUTHCONFIG: ${authConfig}")
 		if(authConfig.token) {
-			log.info("HAS TOKEN: ${authConfig.token}")
-			log.info("EXPIRES: ${authConfig.expires.time}")
+			log.debug("HAS TOKEN: ${authConfig.token}")
+			log.debug("EXPIRES: ${authConfig.expires.time}")
 			if (authConfig.expires) {
 				// check if token in authConfig is valid
 
 				if (authConfig.expires && authConfig.expires.time < (System.currentTimeMillis() - tokenBuffer)) {
-					log.info("api access token is expired, expires: ${authConfig.expires}, re-authenticating now to get a new token")
+					log.debug("api access token is expired, expires: ${authConfig.expires}, re-authenticating now to get a new token")
 					requestToken = true
 				} else {
 					requestToken = false
@@ -91,7 +76,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 					rtn.data.token = authConfig.token
 				}
 			} else {
-				log.info("api access token is valid, expires: ${authConfig.expires}, using existing token")
+				log.debug("api access token is valid, expires: ${authConfig.expires}, using existing token")
 				requestToken = false
 				rtn.success = true
 				rtn.data.token = authConfig.token
@@ -100,16 +85,16 @@ class GqlApiService implements PlatformApiServiceInterface {
 
 		// if the token in authConfig is invalid, retrieve cached valid token, or request new token
 		if(requestToken == true) {
-			log.info("REQUESTING TOKEN 99")
+			log.debug("REQUESTING TOKEN 99")
 			def cachedToken = getCachedToken(authConfig.username)
-			log.info("CACHED TOKEN 101: ${cachedToken}")
+			log.debug("CACHED TOKEN 101: ${cachedToken}")
 			if(cachedToken?.token) {
 				rtn.success = true
 				rtn.data.token = cachedToken.token
 				rtn.data.expires = cachedToken.expires
-				log.info("RETRIEVED CACHED TOKEN: ${rtn.data}")
+				log.debug("RETRIEVED CACHED TOKEN: ${rtn.data}")
 			} else {
-				log.info("API CALL TO REQUEST TOKEN 108")
+				log.debug("API CALL TO REQUEST TOKEN 108")
 				String apiUrl = authConfig.apiUrl.toString()
 				String apiPath = authConfig.basePath + '/client_token'
 				String username = authConfig.username.toString()
@@ -117,19 +102,19 @@ class GqlApiService implements PlatformApiServiceInterface {
 				HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(ignoreSSL: true)
 				requestOpts.body = [ "client_id":username, "client_secret":password ]
 				String method = "POST"
-				log.info("getToken authConfig: ${authConfig}")
-				log.info("apiUrl: ${apiUrl}, apiPath: ${apiPath}, user: ${username}, pass: ${password}, requestOpts: ${requestOpts}, method: ${method}")
+				log.debug("getToken authConfig: ${authConfig}")
+				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}, user: ${username}, pass: ${password}, requestOpts: ${requestOpts}, method: ${method}")
 
 				HttpApiClient client = new HttpApiClient()
 				ServiceResponse results = client.callJsonApi(apiUrl, apiPath, username, password, requestOpts, method)
-				log.info("results: ${results}")
+				log.debug("results: ${results}")
 				rtn.success = results?.success && results?.error != true
 				if(rtn.success == true) {
 					rtn = results
 					rtn.data.token = results?.data.access_token
 					rtn.data.expires = new Date(System.currentTimeMillis() + (results?.data.expires_in.toLong() * 1000l))
 				}
-				log.info("RETRIEVED FRESH API TOKEN")
+				log.debug("RETRIEVED FRESH API TOKEN")
 			}
 
 			// update authConfig token
@@ -149,7 +134,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 
 	// reap expired tokens and return a valid token given the client id/username
 	static getCachedToken(String cacheKey) {
-		log.info("GET CACHED TOKEN")
+		log.debug("GET CACHED TOKEN")
 		def rtn
 		try {
 			synchronized (tokenLock) {
@@ -166,8 +151,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 					}
 				}
 				def cachedToken = tokens[cacheKey]
-				log.info("tokens: ${tokens}")
-				log.info("GET CACHED TOKEN EXPIRES: ${cachedToken?.expires}")
+				log.debug("GET CACHED TOKEN EXPIRES: ${cachedToken?.expires}")
 				if(cachedToken) {
 					if(cachedToken.expires > new Date(System.currentTimeMillis() + (10l*60l*1000l))) {
 						rtn = cachedToken
@@ -178,14 +162,14 @@ class GqlApiService implements PlatformApiServiceInterface {
 		} catch(Exception ex) {
 			log.error("getCachedToken error: ${}", ex)
 		}
-		log.info("GET CACHED TOKEN RTN: ${rtn}")
+		log.debug("GET CACHED TOKEN RTN: ${rtn}")
 		return rtn
 	}
 
 	static void cacheToken(String cacheKey, Map authConfig) {
-		log.info("CACHING TOKEN 178")
-		log.info("CACHE KEY: ${cacheKey}")
-		log.info("CACHE DATA: ${authConfig}")
+		log.debug("CACHING TOKEN 178")
+		log.debug("CACHE KEY: ${cacheKey}")
+		log.debug("CACHE DATA: ${authConfig}")
 		try {
 			synchronized(tokenLock) {
 				tokens[cacheKey] = [
@@ -206,14 +190,14 @@ class GqlApiService implements PlatformApiServiceInterface {
 				def expiredKeys = []
 				for (cacheKey in tokens.keySet()) {
 					def tokenExpires = tokens[cacheKey]?.expires
-					log.info("CHECKING TOKEN EXPIRES FOR REAP: ${tokenExpires}")
+					log.debug("CHECKING TOKEN EXPIRES FOR REAP: ${tokenExpires}")
 					if(tokenExpires && tokenExpires < new Date(System.currentTimeMillis() - (10l*60l*1000l))) {
-						log.info("REAPING TOKEN THAT EXPIRES AT: ${tokenExpires}")
+						log.debug("REAPING TOKEN THAT EXPIRES AT: ${tokenExpires}")
 						expiredKeys << cacheKey
 					}
 				}
 				expiredKeys.each { cacheKey ->
-					log.info("REAPING TOKEN: ${cacheKey}")
+					log.debug("REAPING TOKEN: ${cacheKey}")
 					tokens.remove(cacheKey)
 				}
 			}
@@ -265,11 +249,9 @@ class GqlApiService implements PlatformApiServiceInterface {
 	//---- utility methods
 	@Override
 	ServiceResponse internalApiRequest(Map authConfig, String path, String requestMethod='POST', String dataKey='data', Map body=null, Map queryParams=null, Map addHeaders=null) {
-		log.info("authConfig:${authConfig}")
 		def rtn = ServiceResponse.prepare()
 		try {
 			def tokenResults = getToken(authConfig)
-			log.info("API Token results : ${tokenResults}")
 			if(tokenResults.success == true) {
 				authConfig.token = tokenResults.data.token
 				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, authConfig.gqlPath)
@@ -287,22 +269,22 @@ class GqlApiService implements PlatformApiServiceInterface {
 				rtn.data = [(dataKey):[], total:0]
 				while(results.success && results.data?.hasMore) {
 					HttpApiClient client = new HttpApiClient()
-					log.info("274 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
-					log.info("275 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
+					log.debug("274 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
+					log.debug("275 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
 					results = client.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
-					log.info("API Result: ${results}")
+					log.debug("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false && results.data?.errors == null && results.data?.data?[dataKey]?.error == null) {
-						log.info("RESULTS SUCCESS: ${results.data}")
+						log.debug("RESULTS SUCCESS: ${results.data}")
 						if(results.data.data != null) {
 							if(path) {
 								results.data.data[dataKey][path]?.each { row ->
 									def obj = row
-									log.info("OBJ: ${obj}")
+									log.debug("OBJ: ${obj}")
 									rtn.data[dataKey] << obj
 								}
 							} else {
 								def obj = results.data.data[dataKey]
-								log.info("OBJ: ${obj}")
+								log.debug("OBJ: ${obj}")
 								rtn.data[dataKey] << obj
 							}
 							rtn.data.total = results.data.total
@@ -311,7 +293,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 						}
 						rtn.success = true
 					} else {
-						log.info("RESULTS FAILED: ${results}")
+						log.debug("RESULTS FAILED: ${results}")
 						rtn = results
 						if(rtn.success) {
 							if(rtn.data?.errors) {
@@ -336,7 +318,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 		} catch(e) {
 			log.error("error during api request {}: {}", path, e, e)
 		}
-		log.info("PARSED API RESULT: ${rtn}")
+		log.debug("PARSED API RESULT: ${rtn}")
 		return rtn
 	}
 }
