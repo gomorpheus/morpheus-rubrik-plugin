@@ -87,8 +87,13 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 		return rtn
 	}
 
-	def rubrikPlatformTypes(params) {
-		def rtn = [[name: 'RSC', value: 'RSC']]
+	def rubrikPlatformTypes(args) {
+		args = args instanceof Object[] ? args.getAt(0) : args
+
+		def rtn = [
+			[name: 'Rubrik CDM', value: '', isDefault: args.domain?.id ? true : false], // CDM is the default for existing integrations to handle null value is a CDM integration
+			[name: 'Rubrik Security Cloud', value: 'RSC', isDefault: args.domain?.id ? false : true ] // RSC is the default for new integrations
+		]
 		return rtn
 	}
 }
