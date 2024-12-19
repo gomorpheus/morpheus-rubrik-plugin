@@ -88,6 +88,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 			log.debug("REQUESTING TOKEN 99")
 			def cachedToken = getCachedToken(authConfig.username)
 			log.debug("CACHED TOKEN 101: ${cachedToken}")
+			def updateTokenCache = false
 			if(cachedToken?.token) {
 				rtn.success = true
 				rtn.data.token = cachedToken.token
@@ -110,13 +111,12 @@ class GqlApiService implements PlatformApiServiceInterface {
 				log.debug("results: ${results}")
 				rtn.success = results?.success && results?.error != true
 				if(rtn.success == true) {
+					log.debug("RETRIEVED FRESH API TOKEN")
 					rtn = results
 					rtn.data.token = results?.data.access_token
 					rtn.data.expires = new Date(System.currentTimeMillis() + (results?.data.expires_in.toLong() * 1000l))
+					updateTokenCache = true
 				}
-				log.debug("RETRIEVED FRESH API TOKEN")
-				log.debug("CACHE NEW TOKEN")
-				cacheToken(authConfig.username, authConfig)
 			}
 
 			// update authConfig token
@@ -124,6 +124,10 @@ class GqlApiService implements PlatformApiServiceInterface {
 				log.debug("Successfully retrieved an api token that expires: ${rtn.data.expires}")
 				authConfig.token = rtn.data.token
 				authConfig.expires = rtn.data.expires
+				if(updateTokenCache) {
+					log.debug("CACHE NEW TOKEN")
+					cacheToken(authConfig.username, authConfig)
+				}
 			}
 		}
 		return rtn
