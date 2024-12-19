@@ -68,8 +68,8 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         }
 
         log.debug("VM CDM ID: ${vmCdmId}")
-        log.debug("VM FID: ${vm.id}")
-        return vm.id
+        log.debug("VM FID: ${vm?.id}")
+        return vm?.id
     }
 
     ServiceResponse getVirtualMachineByMoid(Map authConfig, String vmExternalId, String hostExternalId) {
@@ -381,7 +381,10 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 "operationName": "listVCenterServers"
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, 'nodes', 'vSphereVCenterConnection', payload, null, headers)
+		def results = internalPostApiRequest(authConfig, 'nodes', 'vSphereVCenterConnection', payload, null, headers)
+		// modify the response to match the format of the rest api response.
+		results.data = [vcenterServers: results.data.vSphereVCenterConnection]
+        return results
     }
 
     ServiceResponse refreshVcenterServer(Map authConfig, String serverId) {
@@ -414,7 +417,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
                 rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.id, clusterId: vmIdResponse.data.cluster.id]]
                 keepGoing = false
             } else {
-                if(attempt == 0) {
+                if(attempt % 10 == 0) {
                     log.debug("virtual machine not found in Rubrik, initiating vCenter server refresh.")
                     // on first retry kick refresh vcenter servers
                     // if the vm isn't found in Rubrik the next refresh may not be for another 10 minutes,

@@ -203,6 +203,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	// provider
 	@Override
 	ServiceResponse configureBackupProvider(com.morpheusdata.model.BackupProvider backupProviderModel, Map config, Map opts) {
+		log.debug("configureBackupProvider - model: {}, config: {}, opts: {}", backupProviderModel, config, opts)
 		backupProviderModel.host = opts.provider.host
 		if(backupProviderModel.host) {
 			backupProviderModel.serviceUrl = normalizeApiUrl(backupProviderModel.getHost())
@@ -212,6 +213,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	}
 	@Override
 	ServiceResponse validateBackupProvider(BackupProviderModel backupProviderModel, Map opts) {
+		log.debug("validateBackupProvider - model: {}, opts: {}", backupProviderModel, opts)
 		def rtn = [success:false, errors:[:]]
 		try {
 			def apiOpts = [:]
@@ -223,21 +225,24 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 
 			def localCredentials = (backupProviderModel.credentialData?.type ?: 'local') == 'local'
 
+			log.debug("backupProviderModel config: ${backupProviderModel.config}")
 			def platformType = (backupProviderModel.getConfigProperty("platformType") == "RSC") ? "RSC" : "CDM"
 			log.debug("platformType: {}", platformType)
-			if(((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password)) && platformType == 'CDM') {
+			if(platformType == 'CDM' && ((localCredentials && !backupProviderModel?.serviceToken) || (!localCredentials && !backupProviderModel.credentialData?.password))) {
 				rtn.msg = rtn.msg ?: 'Enter an api token'
 				rtn.errors.serviceToken = 'Enter an api token'
 			}
 
-			if(((localCredentials && !backupProviderModel?.getConfigProperty("username")) || (!localCredentials && !backupProviderModel.credentialData?.username)) && platformType == 'RSC') {
+			if(platformType == 'RSC') {
+				if((localCredentials && !backupProviderModel?.getConfigProperty("username")) || (!localCredentials && !backupProviderModel.credentialData?.username)) {
 				rtn.msg = rtn.msg ?: 'Enter client id'
 				rtn.errors.clientSecret = 'Enter client id'
-			}
+				}
 
-			if(((localCredentials && !backupProviderModel?.getConfigProperty("password")) || (!localCredentials && !backupProviderModel.credentialData?.password)) && platformType == 'RSC') {
-				rtn.msg = rtn.msg ?: 'Enter client secret'
-				rtn.errors.clientSecret = 'Enter client secret'
+				if((localCredentials && !backupProviderModel?.getConfigProperty("password")) || (!localCredentials && !backupProviderModel.credentialData?.password)) {
+					rtn.msg = rtn.msg ?: 'Enter client secret'
+					rtn.errors.clientSecret = 'Enter client secret'
+				}
 			}
 
 			if(rtn.errors.size() == 0) {

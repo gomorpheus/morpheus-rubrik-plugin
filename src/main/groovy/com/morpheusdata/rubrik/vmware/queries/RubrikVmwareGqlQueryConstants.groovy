@@ -352,11 +352,14 @@ class RubrikVmwareGqlQueryConstants {
 
     static final refreshVcenterServer = """
         mutation refreshVcenterServer (\$fid: UUID!) {
-            refreshVsphereVcenter (input: {
-                fid: \$fid
-            }) {
+            refreshVsphereVcenter (input: {fid: \$fid}) {
                 id
                 status
+                error {
+                    message
+                    __typename
+                }
+                __typename
             }
         }
     """

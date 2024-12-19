@@ -29,6 +29,7 @@ class VcenterServerService {
 		try {
 			ServiceResponse listResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listVCenterServers(authConfig)
 			if(listResults.success) {
+				log.debug("refreshVCenterServers: listResults: ${listResults.data}")
 				listResults.data?.vcenterServers.each { server ->
 					String serverId = server.id
 					apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).refreshVcenterServer(authConfig, serverId)

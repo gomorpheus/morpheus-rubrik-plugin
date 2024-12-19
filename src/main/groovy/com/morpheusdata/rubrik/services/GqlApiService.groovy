@@ -115,14 +115,15 @@ class GqlApiService implements PlatformApiServiceInterface {
 					rtn.data.expires = new Date(System.currentTimeMillis() + (results?.data.expires_in.toLong() * 1000l))
 				}
 				log.debug("RETRIEVED FRESH API TOKEN")
+				log.debug("CACHE NEW TOKEN")
+				cacheToken(authConfig.username, authConfig)
 			}
 
 			// update authConfig token
 			if(rtn.success) {
-				log.debug("Successfully retrieved a new api token that expires: ${rtn.data.expires}")
+				log.debug("Successfully retrieved an api token that expires: ${rtn.data.expires}")
 				authConfig.token = rtn.data.token
 				authConfig.expires = rtn.data.expires
-				cacheToken(authConfig.username, authConfig)
 			}
 		}
 		return rtn

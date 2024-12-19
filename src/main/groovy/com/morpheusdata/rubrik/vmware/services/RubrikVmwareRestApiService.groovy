@@ -128,7 +128,7 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 				rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.virtualMachine?.getAt(0)?.id]]
 				keepGoing = false
 			} else {
-				if(attempt == 0) {
+				if(attempt % 10 == 0) {
 					log.debug("virtual machine not found in Rubrik, initiating vCenter server refresh.")
 					// on first retry kick refresh vcenter servers
 					// if the vm isn't found in Rubrik the next refresh may not be for another 10 minutes,
