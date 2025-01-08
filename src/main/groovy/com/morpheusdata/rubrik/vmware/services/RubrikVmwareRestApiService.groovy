@@ -94,11 +94,11 @@ class RubrikVmwareRestApiService extends RestApiService implements RubrikVmwareP
 		return internalGetApiRequest(authConfig, '/vmware/vm/request/' + requestId, 'request')
 	}
 
-	ServiceResponse getSnapshot(authConfig, snapshotId) {
+	ServiceResponse getSnapshot(Map authConfig, String snapshotId) {
 		return internalGetApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId, 'snapshot')
 	}
 
-	ServiceResponse deleteSnapshot(authConfig, snapshotId) {
+	ServiceResponse deleteSnapshot(Map authConfig, String snapshotId, String vmId) {
 		Map queryParams = [location: "all"]
 		return internalDeleteApiRequest(authConfig, '/vmware/vm/snapshot/' + snapshotId, queryParams)
 	}

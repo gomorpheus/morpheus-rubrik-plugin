@@ -166,7 +166,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			def isOnDemandSnapshot = resultConfig.containsKey("isOnDemandSnapshot") ? resultConfig.isOnDemandSnapshot : true
 			if(isOnDemandSnapshot) {
 				if(backupResult.externalId) {
-					ServiceResponse deleteResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).deleteSnapshot(authConfig, backupResult.externalId)
+					String vmId = backupResult.backup.getConfigProperty("rubrikFid")
+					ServiceResponse deleteResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).deleteSnapshot(authConfig, backupResult.externalId, vmId)
 					log.debug("deleteResult erroCode: ${deleteResult.errorCode}")
 					if(deleteResult.success || deleteResult.errorCode == "404") {
 						rtn.success = true

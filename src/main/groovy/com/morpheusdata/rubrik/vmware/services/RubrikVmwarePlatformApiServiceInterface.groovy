@@ -20,8 +20,8 @@ public interface RubrikVmwarePlatformApiServiceInterface extends PlatformApiServ
     ServiceResponse getHost(Map authConfig, String hostId);
     ServiceResponse listSnapshotsForVirtualMachine(Map authConfig, vmId);
     ServiceResponse getVmTaskRequest(Map authConfig, String clusterId, String requestId); // fix parameters
-    ServiceResponse getSnapshot(authConfig, snapshotId);
-    ServiceResponse deleteSnapshot(authConfig, snapshotId);
+    ServiceResponse getSnapshot(Map authConfig, String snapshotId);
+    ServiceResponse deleteSnapshot(Map authConfig, String snapshotId, String vmId);
     ServiceResponse listVCenterServers(Map authConfig);
     ServiceResponse refreshVcenterServer(Map authConfig, String serverId);
     ServiceResponse waitForVirtualMachine(Map authConfig, String vmExternalId, String hostExternalId, backupProvider);

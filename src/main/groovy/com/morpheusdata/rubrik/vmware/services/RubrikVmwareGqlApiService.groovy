@@ -348,7 +348,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         return rtn
     }
 
-    ServiceResponse getSnapshot(authConfig, snapshotId) {
+    ServiceResponse getSnapshot(Map authConfig, String snapshotId) {
         String query = RubrikVmwareGqlQueryConstants.getSnapshot.replaceAll("[\\r\\n]", "")
         def payload = [
                 "query": query,
@@ -361,17 +361,18 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
         return internalPostApiRequest(authConfig, 'nodes', 'vSphereVmNewConnection', payload,null, headers)
     }
 
-    ServiceResponse deleteSnapshot(authConfig, snapshotId) {
+    ServiceResponse deleteSnapshot(Map authConfig, String snapshotId, String vmId) {
         String query = RubrikVmwareGqlQueryConstants.deleteSnapshot.replaceAll("[\\r\\n]", "")
+        String snapshotFid = getSnapshotFidFromCdmId(authConfig, vmId, snapshotId)
         def payload = [
                 "query": query,
                 "operationName": "deleteSnapshot",
                 "variables": [
-                        "snapshotIds": [ snapshotId ]
+                        "snapshotIds": [ snapshotFid ]
                 ]
         ]
         def headers = ["Content-Type": "application/json"]
-        return internalPostApiRequest(authConfig, null, 'deleteUnmanagedSnapshots', payload,null, headers)
+        return internalPostApiRequest(authConfig, null, 'deleteUnmanagedSnapshots', payload, null, headers)
     }
 
     ServiceResponse listVCenterServers(Map authConfig) {
