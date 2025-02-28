@@ -1,7 +1,7 @@
 package com.morpheusdata.rubrik.services
 
 import com.morpheusdata.core.MorpheusContext
-import com.morpheusdata.core.util.RestApiUtil
+import com.morpheusdata.core.util.HttpApiClient
 import com.morpheusdata.model.BackupProvider
 import com.morpheusdata.response.ServiceResponse
 import com.morpheusdata.response.WorkloadResponse
@@ -56,8 +56,10 @@ class RestApiService implements PlatformApiServiceInterface {
 		}
 		if(requestToken == true) {
 			def apiPath = authConfig.basePath + '/session'
-			RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(ignoreSSL: true)
-			ServiceResponse results = RestApiUtil.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
+			HttpApiClient client = new HttpApiClient()
+			client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
+			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(ignoreSSL: true)
+			ServiceResponse results = client.callJsonApi(authConfig.apiUrl, apiPath, authConfig.username, authConfig.password, requestOpts, 'POST')
 			rtn = results
 			rtn.success = results?.success && results?.error != true
 			if(rtn.success) {
@@ -76,8 +78,10 @@ class RestApiService implements PlatformApiServiceInterface {
 		if(authConfig.sessionId) {
 			def apiPath = authConfig.basePath + '/session/' + authConfig.sessionId
 			def headers = buildHeaders([:], authConfig.token)
-			RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(headers:headers, ignoreSSL: true)
-			def results = RestApiUtil.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
+			HttpApiClient client = new HttpApiClient()
+			client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
+			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers, ignoreSSL: true)
+			def results = client.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
 			rtn.success = results?.success && results?.error != true
 		}
 		return rtn
@@ -115,7 +119,9 @@ class RestApiService implements PlatformApiServiceInterface {
 				def (String apiUrl, String apiPath) = buildApiParts(authConfig.apiUrl, tmpPath)
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}")
 				Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
-				RestApiUtil.RestOptions requestOpts = new RestApiUtil.RestOptions(headers:headers)
+				HttpApiClient client = new HttpApiClient()
+				client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
+				HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers)
 				if(queryParams) {
 					requestOpts.queryParams = queryParams
 				}
@@ -128,7 +134,7 @@ class RestApiService implements PlatformApiServiceInterface {
 				while(results.success && results.data?.hasMore) {
 					log.debug("274 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
 					log.debug("275 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
-					results = RestApiUtil.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
+					results = client.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
 					log.debug("API Result: ${results}")
 					if(results.success == true && results.hasErrors() == false) {
 						if(results.data.data != null) {

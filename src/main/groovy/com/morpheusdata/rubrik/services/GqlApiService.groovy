@@ -107,6 +107,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 				log.debug("apiUrl: ${apiUrl}, apiPath: ${apiPath}, user: ${username}, pass: ${password}, requestOpts: ${requestOpts}, method: ${method}")
 
 				HttpApiClient client = new HttpApiClient()
+				client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
 				ServiceResponse results = client.callJsonApi(apiUrl, apiPath, username, password, requestOpts, method)
 				log.debug("results: ${results}")
 				rtn.success = results?.success && results?.error != true
@@ -218,8 +219,10 @@ class GqlApiService implements PlatformApiServiceInterface {
 			def apiPath = authConfig.basePath + '/session'
 			def addHeaders = ["Content-Type": "application/json"]
 			Map<String,String> headers = buildHeaders(addHeaders, authConfig.token)
+			HttpApiClient client = new HttpApiClient()
+			client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
 			HttpApiClient.RequestOptions requestOpts = new HttpApiClient.RequestOptions(headers:headers, ignoreSSL: true)
-			def results = HttpApiClient.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
+			def results = client.callJsonApi(authConfig.apiUrl, apiPath, requestOpts, 'DELETE')
 			rtn.success = results?.success && results?.error != true
 		}
 		return rtn
@@ -274,6 +277,7 @@ class GqlApiService implements PlatformApiServiceInterface {
 				rtn.data = [(dataKey):[], total:0]
 				while(results.success && results.data?.hasMore) {
 					HttpApiClient client = new HttpApiClient()
+					client.networkProxy = morpheusContext.services.setting.getGlobalNetworkProxy()
 					log.debug("274 API URL: ${apiUrl}, API PATH: ${apiPath}, REQUESTOPTS: ${requestOpts}, REQUESTMETHOD: ${requestMethod}")
 					log.debug("275 PATH: ${path}, BODY: ${requestOpts.body}, QUERYPARAMS: ${requestOpts.queryParams}, HEADERS: ${requestOpts.headers}")
 					results = client.callJsonApi(apiUrl, apiPath, requestOpts, requestMethod)
