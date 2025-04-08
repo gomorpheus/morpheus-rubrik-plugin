@@ -50,7 +50,7 @@ class SnapshotService {
 						.map { ComputeServerModel server ->
 							return [backup:backups.find{it.computeServerId == server.id }, server: server]
 						}
-				}.concatMap() {  Map<String, MorpheusModel> backupServerDto ->
+				}.concatMap() {  Map<String, BackupModel> backupServerDto ->
 					log.debug("EXECUTE CACHE: ${backupServerDto.backup.config}")
 					ServiceResponse snapshotListResults = apiService.getPlatformApiService(backupProviderModel.getConfigProperty("platformType")).listSnapshotsForVirtualMachine(authConfig, backupServerDto.backup.getConfigProperty("rubrikFid"))
 				    log.debug("SNAPSHOT LIST RESULTS: ${snapshotListResults}")
@@ -77,8 +77,12 @@ class SnapshotService {
 					)
 					SyncTask<BackupResultIdentityProjection, Map, BackupResultModel> syncTask = new SyncTask(backupResultIdentityProjections, snapshotList)
 					syncTask.addMatchFunction { BackupResultIdentityProjection localItem, Map remoteItem ->
-						log.debug("MATCH: localItem.externalId == remoteItem.id: ${localItem.externalId} ${localItem.backupName}")
-						localItem.externalId == remoteItem.id
+						log.debug("MATCH SNAPSHOT: localItem.externalId: ${localItem.externalId} == remoteItem.cdmId: ${remoteItem.cdmId}, remoteItem.id: ${remoteItem.id}, backupName: ${localItem.backupName}")
+						if(remoteItem.cdmId) {
+							localItem.externalId == remoteItem.cdmId
+						} else {
+							localItem.externalId == remoteItem.id
+						}
 					}.onDelete { List<BackupResultIdentityProjection> deleteList ->
 						List<BackupResultIdentityProjection> filteredDeleteList = plugin.morpheus.services.backup.backupResult.listIdentityProjections(
 							new DataQuery(backupProviderModel.account)
@@ -123,9 +127,10 @@ class SnapshotService {
 	}
 
 	private addMissingItems(List<Map> itemList, BackupModel backupModel, BackupProviderModel backupProviderModel) {
-
 		def newItems = []
 		for(Map remoteItem in itemList) {
+			log.debug("ADDING MISSING SNAPSHOT: ${remoteItem.dump()}")
+
 			Date createdDate = DateUtility.parseDate(remoteItem.date)
 			Date createdDay = createdDate ? Date.from(createdDate.toInstant().truncatedTo(ChronoUnit.DAYS)) : null
 			def add = new BackupResultModel(
@@ -157,6 +162,8 @@ class SnapshotService {
 		for(SyncTask.UpdateItem<BackupResultModel, Map> updateMap in itemList) {
 			BackupResultModel localItem = updateMap.existingItem
 			Map remoteItem = updateMap.masterItem
+			log.debug("UPDATING MATCHED SNAPSHOT: ${localItem.dump()}")
+
 			def doUpdate = false
 
 			if(remoteItem.name != null && localItem.backupName != remoteItem.name) {

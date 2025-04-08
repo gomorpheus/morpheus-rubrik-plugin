@@ -325,6 +325,15 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
             log.debug("DATA TYPE: ${rtn.data.getClass()}")
             if(rtn.success) {
                 rtn.data.snapshots = rtn.data.snapshotsListConnection
+                def vm = getVirtualMachine(authConfig, vmId)
+                def vmSnapshots = vm.data.virtualMachine.snapshotConnection.nodes
+                for(snapshot in rtn.data.snapshots) {
+                    def vmSnapshot = vmSnapshots.find { it ->
+                        it.id == snapshot.id
+                    }
+                    def cdmId = vmSnapshot.cdmId
+                    snapshot.cdmId = cdmId
+                }
             }
         } catch(e) {
             log.error("error listing snapshots: ${e}", e)
