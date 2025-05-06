@@ -96,7 +96,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 	public String getDefaultJobType() { return "none"; }
 
 	@Override
-	public Boolean getHasRetentionCount() { return true; }
+	public Boolean getHasRetentionCount() { return false; }
 
 	@Override
 	Collection<OptionType> getOptionTypes() {
