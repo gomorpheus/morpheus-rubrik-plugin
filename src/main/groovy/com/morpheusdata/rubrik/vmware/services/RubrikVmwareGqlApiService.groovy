@@ -34,6 +34,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
             String cdmId = vmId.split(":::")[1]
             vmId = getVirtualMachineFidFromCdmId(authConfig, cdmId)
         }
+        log.debug("vmId from getVirtualMachine: ${vmId}")
 
         String query = RubrikVmwareGqlQueryConstants.getVirtualMachine.replaceAll("[\\r\\n]", "")
         def payload = [
@@ -424,7 +425,7 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
             if(vmIdResponse.success && vmIdResponse.data?.id) {
                 log.debug("Virtual Machine now available in Rubrik")
                 rtn.success = true
-                rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.id, clusterId: vmIdResponse.data.cluster.id]]
+                rtn.data = [virtualMachine: [rubrikFid: vmIdResponse.data.id, clusterId: vmIdResponse.data.cluster.id, effectiveSlaDomainId: vmIdResponse.data.effectiveSlaDomain.id]]
                 keepGoing = false
             } else {
                 if(attempt % 10 == 0) {

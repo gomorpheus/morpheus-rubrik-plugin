@@ -56,8 +56,8 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 			// Only need to update the VM with an SLA Domain if necessary
 			BackupProvider backupProvider = backup.backupProvider
 			def slaDomainId = opts.rubrikSlaDomain ?: backup.getConfigProperty('rubrikSlaDomain')
-			def slaDomain = !slaDomainId ? "UNPROTECTED" : plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
-			def slaDomainExternalId = !slaDomainId ? "UNPROTECTED" : slaDomain?.externalId
+			def slaDomain = (slaDomainId == "UNPROTECTED") ? "UNPROTECTED" : (slaDomainId == "INHERIT") ? "INHERIT" : plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
+			def slaDomainExternalId = (slaDomainId == "UNPROTECTED") ? "UNPROTECTED" : (slaDomainId == "INHERIT") ? "INHERIT" : slaDomain?.externalId
 			log.debug("slaDomainId: {}", slaDomainId)
 			log.debug("slaDomain: {}", slaDomain)
 			log.debug("slaDomainExternalId: {}", slaDomainExternalId)
@@ -74,12 +74,15 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 					if(vmIdResult.success) {
 						log.debug("VMID RESULT DATA 61: ${vmIdResult.data}")
 						if (vmIdResult.data.virtualMachine?.clusterId) {
-							log.debug("VMIDRESULT: ${vmIdResult.data}")
 							backup.setConfigProperty("clusterId", vmIdResult.data.virtualMachine.clusterId)
-							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
-						} else if (vmIdResult.data.virtualMachine?.rubrikFid) {
+						}
+						if (vmIdResult.data.virtualMachine?.rubrikFid) {
 							backup.setConfigProperty("rubrikFid", vmIdResult.data.virtualMachine.rubrikFid)
 						}
+						if (vmIdResult.data.virtualMachine?.effectiveSlaDomainId) {
+							backup.setConfigProperty("effectiveSlaDomainId", vmIdResult.data.virtualMachine.effectiveSlaDomainId)
+						}
+
 						log.debug("BACKUP CLUSTER ID: ${backup.getConfigProperty("clusterId")}")
 						log.debug("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
 
@@ -217,7 +220,12 @@ class RubrikVmwareBackupExecutionProvider implements BackupExecutionProvider {
 				String vmId = backup.getConfigProperty("rubrikFid")
 				log.debug("EXECUTE BACKUP: ${backup.config}")
 				log.debug("BACKUP RUBRIK FID: ${backup.getConfigProperty("rubrikFid")}")
-				ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId)
+				def slaDomainId = backup.getConfigProperty('rubrikSlaDomain')
+				def slaDomain = (slaDomainId == "UNPROTECTED") ? "UNPROTECTED" : (slaDomainId == "INHERIT") ? "INHERIT" : plugin.morpheus.async.referenceData.get(slaDomainId.toLong()).blockingGet()
+				def slaDomainExternalId = (slaDomainId == "UNPROTECTED") ? null : (slaDomainId == "INHERIT") ? backup.getConfigProperty('effectiveSlaDomainId') : slaDomain?.externalId
+				log.debug("slaDomainExternalId: {}", slaDomainExternalId)
+
+				ServiceResponse backupRequestResult = apiService.getPlatformApiService(backupProvider.getConfigProperty("platformType")).backupVirtualMachine(authConfig, vmId, [slaId: slaDomainExternalId])
 				log.debug("executeBackup requestResult: {}", backupRequestResult)
 				if(backupRequestResult.success == true) {
 					rtn.data.backupResult.status = RubrikBackupStatusUtility.getBackupStatus(backupRequestResult.data.backupRequest?.status)

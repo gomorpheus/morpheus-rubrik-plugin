@@ -71,6 +71,10 @@ class RubrikVmwareGqlQueryConstants {
                     cdmId
                     id
                     name
+                    effectiveSlaDomain {
+                        id
+                        name
+                    }
                     cluster {
                         id
                     }

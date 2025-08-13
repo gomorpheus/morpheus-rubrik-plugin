@@ -170,7 +170,7 @@ class RubrikBackupProvider extends AbstractBackupProvider {
 		optionTypes << new OptionType(
 			code:'backup.rubrik.slaDomain', inputType:OptionType.InputType.SELECT, name:'rubrikSlaDomain', optionSource:'rubrikSlaDomains',
 			category:'backup.rubrik', fieldName:'rubrikSlaDomain', fieldCode: 'gomorpheus.label.slaDomain', fieldLabel:'SLA Domain', fieldContext:'backup.config',
-			required:false, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:null, custom:false,
+			required:true, enabled:true, editable:true, global:false, placeHolder:null, helpBlock:'', defaultValue:'UNPROTECTED', custom:false,
 			displayOrder:0, fieldClass:null
 		)
 

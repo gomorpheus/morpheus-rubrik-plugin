@@ -81,6 +81,9 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 			} else {
 				rtn << [name: "No SLA Domains found for Rubrik", id:'']
 			}
+
+			rtn << [name: "Don't Protect", id: 'UNPROTECTED', value: 'UNPROTECTED']
+			rtn << [name: "Clear current SLA Domain (Inherit from Parent)", id: 'INHERIT', value: 'INHERIT']
 		} else {
 			rtn << [name: "No Rubrik backup provider found.", id:'']
 		}
