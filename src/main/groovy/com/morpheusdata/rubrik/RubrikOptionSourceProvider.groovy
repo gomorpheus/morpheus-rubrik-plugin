@@ -60,12 +60,13 @@ class RubrikOptionSourceProvider extends AbstractOptionSourceProvider {
 		if(!cloud && cloudId) {
 			cloud = morpheus.services.cloud.get(Long.parseLong(cloudId))
 			log.debug("cloud: $cloud")
-			log.debug("cloud backupProvider: $cloud.backupProvider")
-			log.debug("cloud backupProvider type: $cloud.backupProvider.type")
+			log.debug("cloud backupProviders: $cloud.backupProviders")
 		}
 
-		if(cloud && cloud.backupProvider) {
-			backupProvider = morpheus.services.backupProvider.get(cloud.backupProvider.id)
+		if(cloud && cloud.backupProviders) {
+			def backupProviderIds = cloud.backupProviders.collect { it.id }
+			def backupProviders = morpheus.services.backupProvider.listById(backupProviderIds).toList()
+			backupProvider = backupProviders.find { it.type.code == 'rubrik' }
 		}
 		log.debug("Plugin rubrikSlaDomains Backup provider: ${backupProvider}")
 		log.debug("Plugin rubrikSlaDomains Backup provider type: ${backupProvider?.type}")
