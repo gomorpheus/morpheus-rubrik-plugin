@@ -94,9 +94,19 @@ class RubrikVmwareGqlApiService extends GqlApiService implements RubrikVmwarePla
 
     Map findMatchedCluster(Map authConfig, ServiceResponse vmIdResponse, String parentServerExternalId) {
         log.debug("FIND MATCHED CLUSTER: ${vmIdResponse.data}, ${parentServerExternalId}")
+        if(!vmIdResponse.success || !vmIdResponse.data?.vSphereVmNewConnection) {
+            log.debug("no vSphereVmNewConnection data available yet, vm not fully synced in Rubrik")
+            return null
+        }
         vmIdResponse.data.vSphereVmNewConnection.find { node ->
             def vmHost = node.physicalPath.find { it ->
                 it.objectType == "VSphereHost"
+            }
+            if(!vmHost) {
+                // physicalPath has not yet been populated with host info for this vm; treat as not-yet-synced
+                // rather than failing so waitForVirtualMachine's polling loop can keep retrying.
+                log.debug("no VSphereHost found in physicalPath for vm, not fully synced in Rubrik yet")
+                return false
             }
 
             def host = getHostById(authConfig, vmHost.fid)
